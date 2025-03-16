@@ -11,7 +11,7 @@ class txn_batch{
     public:
     static void batch_item_mint(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, leveldb::WriteBatch &item_batch);
     static void batch_nft_transfer(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, leveldb::WriteBatch &item_batch);
-    static void batch_proposals(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed);
+    static void batch_proposals(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, const uint64_t &block_time);
     static void batch_votes(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed);
     static void batch_contracts(const zera_txn::TXNS &txns, const std::map<std::string, bool> txn_passed, leveldb::WriteBatch &contract_batch);
     static void batch_contract_updates(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed);

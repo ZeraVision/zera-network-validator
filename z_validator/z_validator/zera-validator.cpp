@@ -195,10 +195,6 @@ int main()
 
     debug::startup_logs();
 
-    int x = 0;
-
-    bool sync = true;
-
     ValidatorNetworkClient::StartRegisterSeeds(&registration_message);
     logging::print("Registering to Zera Network... 10 seconds", false);
     std::this_thread::sleep_for(std::chrono::seconds(10));
@@ -210,16 +206,14 @@ int main()
         return -1;
     }
 
-    zera_validator::BlockHeader last_header;
-    std::string last_key;
-    db_headers_tag::get_last_data(last_header, last_key);
-    std::string last_height = std::to_string(last_header.block_height());
 
     std::thread thread1(RunValidator);
     std::thread thread2(RunClient);
 
     initial_archive();
     logging::print("Sending Heartbeat to Zera Network... 10 seconds", false);
+    uint64_t nonce = registration_message.base().nonce() + 1;
+    send_heartbeat(nonce);
     std::this_thread::sleep_for(std::chrono::seconds(10));
     ValidatorNetworkClient::StartSyncBlockchain(true);
     logging::print("Heartbeat Successful! Joining Zera Network.", false);

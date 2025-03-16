@@ -364,6 +364,28 @@ namespace
 
                     break;
                 }
+                case zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE:
+                {
+                    zera_txn::SmartContractInstantiateTXN net_txn;
+                    status = parse_validate(net_txn, gov_txn.serialized_txn(), contract_adr, gov_txn.txn_hash());
+                    if (!status.ok())
+                    {
+                        return status;
+                    }
+
+                    break;
+                }
+                case zera_txn::TRANSACTION_TYPE::QUASH_TYPE:
+                {
+                    zera_txn::QuashTXN net_txn;
+                    status = parse_validate(net_txn, gov_txn.serialized_txn(), contract_adr, gov_txn.txn_hash());
+                    if (!status.ok())
+                    {
+                        return status;
+                    }
+
+                    break;
+                }
                 case zera_txn::TRANSACTION_TYPE::UKNOWN_TYPE:
                 {
                     return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_proposal.cpp: check_txn: Unknown Transaction Type", zera_txn::TXN_STATUS::INVALID_TXN_DATA);

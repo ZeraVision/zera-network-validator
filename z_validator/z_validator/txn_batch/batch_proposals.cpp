@@ -60,14 +60,21 @@ namespace
         stored_proposal.set_number_of_options(proposal.options_size());
     }
 
-    void staggered(zera_txn::GovernanceProposal &proposal, zera_validator::Proposal &stored_proposal, zera_txn::InstrumentContract &contract)
+    void staggered(zera_txn::GovernanceProposal &proposal, zera_validator::Proposal &stored_proposal, zera_txn::InstrumentContract &contract, const uint64_t &block_time)
     {
         google::protobuf::Timestamp *end_ts = stored_proposal.mutable_end_date();
-        end_ts->set_nanos(0);
         google::protobuf::Timestamp *ts = stored_proposal.mutable_start_date();
-        ts->set_seconds(proposal.start_timestamp().seconds());
-        ts->set_nanos(0);
-        std::string process_key;
+
+        if(proposal.start_timestamp().seconds() < block_time)
+        {
+            ts->set_seconds(block_time);
+        }
+        else
+        {
+            ts->set_seconds(proposal.start_timestamp().seconds());
+        }
+
+
         int days = 0;
         int months = 0;
         if (contract.governance().proposal_period() == zera_txn::PROPOSAL_PERIOD::DAYS)
@@ -79,8 +86,7 @@ namespace
             months = contract.governance().voting_period();
         }
 
-        std::tm pd = time_calc::process_date_staggered(proposal.start_timestamp(), days, months);
-        process_key = time_calc::convert_to_key_hours(pd);
+        std::tm pd = time_calc::process_date_staggered(*ts, days, months);
 
         std::time_t time = std::mktime(&pd);
 
@@ -92,7 +98,7 @@ namespace
 
 }
 
-void txn_batch::batch_proposals(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
+void txn_batch::batch_proposals(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, const uint64_t &block_time)
 {
     leveldb::WriteBatch proposal_batch;
 
@@ -125,7 +131,7 @@ void txn_batch::batch_proposals(const zera_txn::TXNS &txns, const std::map<std::
             }
             else if (contract.governance().type() == zera_txn::GOVERNANCE_TYPE::STAGGERED)
             {
-                staggered(proposal, stored_proposal, contract);
+                staggered(proposal, stored_proposal, contract, block_time);
             }
             else if (contract.governance().type() == zera_txn::GOVERNANCE_TYPE::STAGED || contract.governance().type() == zera_txn::GOVERNANCE_TYPE::CYCLE)
             {

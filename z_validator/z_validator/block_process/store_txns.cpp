@@ -262,7 +262,7 @@ ZeraStatus block_process::store_txns(zera_validator::Block *block, bool archive,
     txn_batch::batch_contract_updates(txns, txn_passed);
     txn_batch::batch_item_mint(txns, txn_passed, item_batch);
     txn_batch::batch_nft_transfer(txns, txn_passed, item_batch);
-    txn_batch::batch_proposals(txns, txn_passed);
+    txn_batch::batch_proposals(txns, txn_passed, block->block_header().timestamp().seconds());
     txn_batch::batch_votes(txns, txn_passed);
     txn_batch::batch_proposal_results(txns, txn_passed);
     txn_batch::batch_currency_equiv(txns, txn_passed);
