@@ -353,6 +353,17 @@ namespace
 
                     break;
                 }
+                case zera_txn::TRANSACTION_TYPE::REQUIRED_VERSION:
+                {
+                    zera_txn::RequiredVersion req_txn;
+                    status = parse_validate(req_txn, gov_txn.serialized_txn(), contract_adr, gov_txn.txn_hash());
+                    if (!status.ok())
+                    {
+                        return status;
+                    }
+
+                    break;
+                }
                 case zera_txn::TRANSACTION_TYPE::UKNOWN_TYPE:
                 {
                     return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_proposal.cpp: check_txn: Unknown Transaction Type", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
