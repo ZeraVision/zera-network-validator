@@ -177,72 +177,101 @@ void verify_txns::store_wrapper<zera_txn::SmartContractInstantiateTXN>(const zer
 template <typename TXType>
 ZeraStatus verify_txns::verify_identity(TXType *txn)
 {
-    TXType txn_copy;
-    txn_copy.CopyFrom(*txn);
-
-    if (!signatures::verify_txns(txn_copy))
+    try
     {
-        return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed.");
-    }
-    zera_txn::BaseTXN *base = txn_copy.mutable_base();
-    std::string *original_hash_str = base->release_hash();
-    std::vector<uint8_t> original_hash(original_hash_str->begin(), original_hash_str->end());
-    std::vector<uint8_t> new_hash = Hashing::sha256_hash(txn_copy.SerializeAsString());
 
-    // if hashes do not match, txn cannot be made
-    if (!Hashing::compare_hash(original_hash, new_hash))
+        TXType txn_copy;
+        txn_copy.CopyFrom(*txn);
+
+        if (!signatures::verify_txns(txn_copy))
+        {
+            return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed.");
+        }
+        zera_txn::BaseTXN *base = txn_copy.mutable_base();
+        std::string *original_hash_str = base->release_hash();
+        std::vector<uint8_t> original_hash(original_hash_str->begin(), original_hash_str->end());
+        std::vector<uint8_t> new_hash = Hashing::sha256_hash(txn_copy.SerializeAsString());
+
+        // if hashes do not match, txn cannot be made
+        if (!Hashing::compare_hash(original_hash, new_hash))
+        {
+            return ZeraStatus(ZeraStatus::Code::HASH_ERROR, "verify_process.h: verify_identity: txn hash did not match");
+        }
+
+        return ZeraStatus(ZeraStatus::Code::OK);
+    }
+    catch (...)
     {
-        return ZeraStatus(ZeraStatus::Code::HASH_ERROR, "verify_process.h: verify_identity: txn hash did not match");
+        return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed. CRASH");
     }
-
-    return ZeraStatus(ZeraStatus::Code::OK);
 }
 
 template <>
 ZeraStatus verify_txns::verify_identity<zera_txn::SmartContractExecuteTXN>(zera_txn::SmartContractExecuteTXN *txn)
 {
-    zera_txn::SmartContractExecuteTXN txn_copy;
-    txn_copy.CopyFrom(*txn);
-
-    if (!signatures::verify_txns(txn_copy))
+    try
     {
-        return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed.");
-    }
-    zera_txn::BaseTXN *base = txn_copy.mutable_base();
-    std::string *original_hash_str = base->release_hash();
-    std::vector<uint8_t> original_hash(original_hash_str->begin(), original_hash_str->end());
-    std::vector<uint8_t> new_hash = Hashing::sha256_hash(txn_copy.SerializeAsString());
+        zera_txn::SmartContractExecuteTXN txn_copy;
+        txn_copy.CopyFrom(*txn);
 
-    // if hashes do not match, txn cannot be made
-    if (!Hashing::compare_hash(original_hash, new_hash))
+        if (!signatures::verify_txns(txn_copy))
+        {
+            return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed.");
+        }
+        zera_txn::BaseTXN *base = txn_copy.mutable_base();
+        std::string *original_hash_str = base->release_hash();
+        std::vector<uint8_t> original_hash(original_hash_str->begin(), original_hash_str->end());
+        std::vector<uint8_t> new_hash = Hashing::sha256_hash(txn_copy.SerializeAsString());
+
+        // if hashes do not match, txn cannot be made
+        if (!Hashing::compare_hash(original_hash, new_hash))
+        {
+            return ZeraStatus(ZeraStatus::Code::HASH_ERROR, "verify_process.h: verify_identity: txn hash did not match");
+        }
+
+        return ZeraStatus(ZeraStatus::Code::OK);
+    }
+    catch (...)
     {
-        return ZeraStatus(ZeraStatus::Code::HASH_ERROR, "verify_process.h: verify_identity: txn hash did not match");
+        return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed. Smart Contract Execute CRASH");
     }
-
-    return ZeraStatus(ZeraStatus::Code::OK);
 }
 
 template <>
 ZeraStatus verify_txns::verify_identity<zera_txn::ValidatorRegistration>(zera_txn::ValidatorRegistration *txn)
 {
-    zera_txn::ValidatorRegistration txn_copy;
-    txn_copy.CopyFrom(*txn);
-
-    if (!signatures::verify_txns(txn_copy))
+    try
     {
-        return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed. Validator Registration");
-    }
-    zera_txn::BaseTXN *base = txn_copy.mutable_base();
-    std::string *original_hash_str = base->release_hash();
-    std::vector<uint8_t> original_hash(original_hash_str->begin(), original_hash_str->end());
-    txn_copy.release_generated_signature();
-    std::vector<uint8_t> new_hash = Hashing::sha256_hash(txn_copy.SerializeAsString());
+        /* code */
 
-    // if hashes do not match, txn cannot be made
-    if (!Hashing::compare_hash(original_hash, new_hash))
+        zera_txn::ValidatorRegistration txn_copy;
+        txn_copy.CopyFrom(*txn);
+
+        if (!signatures::verify_txns(txn_copy))
+        {
+            return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed. Validator Registration");
+        }
+        zera_txn::BaseTXN *base = txn_copy.mutable_base();
+        std::string *original_hash_str = base->release_hash();
+        std::vector<uint8_t> original_hash(original_hash_str->begin(), original_hash_str->end());
+
+        if (txn_copy.register_())
+        {
+            txn_copy.release_generated_signature();
+        }
+
+        std::vector<uint8_t> new_hash = Hashing::sha256_hash(txn_copy.SerializeAsString());
+
+        // if hashes do not match, txn cannot be made
+        if (!Hashing::compare_hash(original_hash, new_hash))
+        {
+            return ZeraStatus(ZeraStatus::Code::HASH_ERROR, "verify_process.h: verify_identity: txn hash did not match");
+        }
+
+        return ZeraStatus(ZeraStatus::Code::OK);
+    }
+    catch (...)
     {
-        return ZeraStatus(ZeraStatus::Code::HASH_ERROR, "verify_process.h: verify_identity: txn hash did not match");
+        return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed. Validator Registration CRASH");
     }
-
-    return ZeraStatus(ZeraStatus::Code::OK);
 }

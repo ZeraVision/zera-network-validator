@@ -198,7 +198,6 @@ ZeraStatus block_process::process_txn<zera_txn::ValidatorRegistration>(const zer
     HashType gen_hash_type = wallets::get_wallet_type(txn->base().public_key());
     std::string pub_key_str_gen = wallets::get_public_key_string(txn->base().public_key());
     KeyType key_type_gen = signatures::get_key_type(pub_key_str_gen);
-
     if (gen_hash_type == HashType::wallet_r || gen_hash_type == HashType::wallet_g || gen_hash_type == HashType::wallet_sc || key_type_gen == KeyType::ERROR_TYPE)
     {
         return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, "process_registration.cpp: process_txn: Generated public key is not accepted.", zera_txn::TXN_STATUS::VALIDATOR_ADDRESS);
@@ -210,6 +209,7 @@ ZeraStatus block_process::process_txn<zera_txn::ValidatorRegistration>(const zer
     {
         return status;
     }
+
 
     status = process_registration_fees(txn, status_fees, txn_type, txn->validator().public_key(), fee_address);
 

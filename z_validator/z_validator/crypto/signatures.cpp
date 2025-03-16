@@ -404,41 +404,57 @@ template void signatures::sign_txns<zera_txn::ProposalResult>(zera_txn::Proposal
 // ##################################################
 bool signatures::verify_multi(const std::string &public_key, const std::string &signature, const std::string &message)
 {
-    std::vector<uint8_t> public_key_vec(public_key.begin(), public_key.end());
-    std::vector<uint8_t> signature_vec(signature.begin(), signature.end());
-    std::vector<uint8_t> message_vec(message.begin(), message.end());
-    return verify_signature(message_vec, signature_vec, public_key_vec);
+    try
+    {
+        std::vector<uint8_t> public_key_vec(public_key.begin(), public_key.end());
+        std::vector<uint8_t> signature_vec(signature.begin(), signature.end());
+        std::vector<uint8_t> message_vec(message.begin(), message.end());
+        return verify_signature(message_vec, signature_vec, public_key_vec);
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 
 template <typename TXType>
 bool signatures::verify_txns(TXType &tx)
 {
-    TXType tx_copy;
-    tx_copy.CopyFrom(tx);
-    zera_txn::BaseTXN *base = tx_copy.mutable_base();
-    base->release_hash();
-
-    if (tx.base().public_key().multi().signatures_size() > 0)
+    try
     {
-        if (tx.base().public_key().multi().signatures_size() != tx.base().public_key().multi().public_keys_size())
+
+        TXType tx_copy;
+        tx_copy.CopyFrom(tx);
+        zera_txn::BaseTXN *base = tx_copy.mutable_base();
+        base->release_hash();
+
+        if (tx.base().public_key().multi().signatures_size() > 0)
         {
-            return false;
+            if (tx.base().public_key().multi().signatures_size() != tx.base().public_key().multi().public_keys_size())
+            {
+                return false;
+            }
+            return multi_signature(tx);
         }
-        return multi_signature(tx);
+
+        std::string public_key_str = wallets::get_public_key_string(base->public_key());
+        std::string encoded_pub = base58_encode_public_key(public_key_str);
+        ;
+
+        std::vector<uint8_t> public_key(public_key_str.begin(), public_key_str.end());
+        std::string *signature_str = base->release_signature();
+
+        std::string message_str = tx_copy.SerializeAsString();
+
+        std::vector<uint8_t> signature(signature_str->begin(), signature_str->end());
+        std::vector<uint8_t> message(message_str.begin(), message_str.end());
+
+        return verify_signature(message, signature, public_key);
     }
-
-    std::string public_key_str = wallets::get_public_key_string(base->public_key());
-    std::string encoded_pub = base58_encode_public_key(public_key_str);;
-
-    std::vector<uint8_t> public_key(public_key_str.begin(), public_key_str.end());
-    std::string *signature_str = base->release_signature();
-
-    std::string message_str = tx_copy.SerializeAsString();
-
-    std::vector<uint8_t> signature(signature_str->begin(), signature_str->end());
-    std::vector<uint8_t> message(message_str.begin(), message_str.end());
-
-    return verify_signature(message, signature, public_key);
+    catch (...)
+    {
+        return false;
+    }
 }
 template bool signatures::verify_txns<zera_txn::GovernanceProposal>(zera_txn::GovernanceProposal &);
 template bool signatures::verify_txns<zera_txn::GovernanceVote>(zera_txn::GovernanceVote &);
@@ -465,123 +481,153 @@ template bool signatures::verify_txns<zera_txn::SmartContractInstantiateTXN>(zer
 template <>
 bool signatures::verify_txns<zera_txn::ValidatorRegistration>(zera_txn::ValidatorRegistration &tx)
 {
-    zera_txn::ValidatorRegistration tx_copy;
-    tx_copy.CopyFrom(tx);
-    zera_txn::BaseTXN *base = tx_copy.mutable_base();
-    std::string* hash = base->release_hash();
-    std::string* gen_sig = tx_copy.release_generated_signature();
-
-    if (tx.base().public_key().multi().signatures_size() > 0)
+    try
     {
-        return false;
-    }
+        zera_txn::ValidatorRegistration tx_copy;
+        tx_copy.CopyFrom(tx);
+        zera_txn::BaseTXN *base = tx_copy.mutable_base();
+        std::string *hash = base->release_hash();
+        std::string *gen_sig = tx_copy.release_generated_signature();
 
-    std::string public_key_str = wallets::get_public_key_string(base->public_key());
-
-    std::vector<uint8_t> public_key(public_key_str.begin(), public_key_str.end());
-
-    std::string *signature_str = base->release_signature();
-
-    std::string message_str = tx_copy.SerializeAsString();
-
-    std::vector<uint8_t> signature(signature_str->begin(), signature_str->end());
-    std::vector<uint8_t> message(message_str.begin(), message_str.end());
-    if(verify_signature(message, signature, public_key))
-    {
-        std::string pub_key_gen_str = wallets::get_public_key_string(tx_copy.generated_public_key());
-        std::vector<uint8_t> gen_public_key(pub_key_gen_str.begin(), pub_key_gen_str.end());
-        std::vector<uint8_t> gen_signature(gen_sig->begin(), gen_sig->end());
-        std::vector<uint8_t> gen_message(hash->begin(), hash->end());
-
-        bool passed = verify_signature(gen_message, gen_signature, gen_public_key);
-        if(passed)
-        {
-            return true;
-        }
-        else 
+        if (tx.base().public_key().multi().signatures_size() > 0)
         {
             return false;
         }
-    }
 
-    return false;
+        std::string public_key_str = wallets::get_public_key_string(base->public_key());
+
+        std::vector<uint8_t> public_key(public_key_str.begin(), public_key_str.end());
+
+        std::string *signature_str = base->release_signature();
+
+        std::string message_str = tx_copy.SerializeAsString();
+
+        std::vector<uint8_t> signature(signature_str->begin(), signature_str->end());
+        std::vector<uint8_t> message(message_str.begin(), message_str.end());
+        if (verify_signature(message, signature, public_key))
+        {
+            if (tx.register_())
+            {
+
+                std::string pub_key_gen_str = wallets::get_public_key_string(tx_copy.generated_public_key());
+                std::vector<uint8_t> gen_public_key(pub_key_gen_str.begin(), pub_key_gen_str.end());
+                std::vector<uint8_t> gen_signature(gen_sig->begin(), gen_sig->end());
+                std::vector<uint8_t> gen_message(hash->begin(), hash->end());
+
+                bool passed = verify_signature(gen_message, gen_signature, gen_public_key);
+                if (passed)
+                {
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 
 template <>
 bool signatures::verify_txns<zera_txn::CoinTXN>(zera_txn::CoinTXN &tx)
 {
-    zera_txn::CoinTXN tx_copy;
-    tx_copy.CopyFrom(tx);
-    zera_txn::BaseTXN *base = tx_copy.mutable_base();
-    base->release_hash();
+    try
+    {
 
-    if (base->has_signature() || base->has_public_key())
+        zera_txn::CoinTXN tx_copy;
+        tx_copy.CopyFrom(tx);
+        zera_txn::BaseTXN *base = tx_copy.mutable_base();
+        base->release_hash();
+
+        if (base->has_signature() || base->has_public_key())
+        {
+            return false;
+        }
+
+        std::vector<std::string> signatures;
+        for (auto signature : tx_copy.auth().signature())
+        {
+            signatures.push_back(signature);
+        }
+
+        tx_copy.mutable_auth()->mutable_signature()->Clear();
+        std::string message_str = tx_copy.SerializeAsString();
+        int x = 0;
+        for (auto public_key : tx_copy.auth().public_key())
+        {
+            if (public_key.multi().signatures_size() > 0)
+            {
+                if (public_key.multi().signatures_size() != public_key.multi().public_keys_size())
+                {
+                    return false;
+                }
+                if (multi_signature(tx))
+                {
+
+                    x++;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                std::string public_key_str = wallets::get_public_key_string(public_key);
+                std::vector<uint8_t> public_key_vec(public_key_str.begin(), public_key_str.end());
+                std::vector<uint8_t> signature_vec(signatures[x].begin(), signatures[x].end());
+                std::vector<uint8_t> message_vec(message_str.begin(), message_str.end());
+
+                if (verify_signature(message_vec, signature_vec, public_key_vec))
+                {
+                    x++;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+    catch (...)
     {
         return false;
     }
-
-    std::vector<std::string> signatures;
-    for (auto signature : tx_copy.auth().signature())
-    {
-        signatures.push_back(signature);
-    }
-
-    tx_copy.mutable_auth()->mutable_signature()->Clear();
-    std::string message_str = tx_copy.SerializeAsString();
-    int x = 0;
-    for (auto public_key : tx_copy.auth().public_key())
-    {
-        if (public_key.multi().signatures_size() > 0)
-        {
-            if (public_key.multi().signatures_size() != public_key.multi().public_keys_size())
-            {
-                return false;
-            }
-            if (multi_signature(tx))
-            {
-
-                x++;
-            }
-            else
-            {
-                return false;
-            }
-        }
-        else
-        {
-            std::string public_key_str = wallets::get_public_key_string(public_key);
-            std::vector<uint8_t> public_key_vec(public_key_str.begin(), public_key_str.end());
-            std::vector<uint8_t> signature_vec(signatures[x].begin(), signatures[x].end());
-            std::vector<uint8_t> message_vec(message_str.begin(), message_str.end());
-
-            if (verify_signature(message_vec, signature_vec, public_key_vec))
-            {
-                x++;
-            }
-            else
-            {
-                return false;
-            }
-        }
-    }
-
-    return true;
 }
 
 template <typename TXType>
 bool signatures::verify_request(TXType &txn)
 {
-    std::string pub_key_str = wallets::get_public_key_string(txn.public_key());
-    std::vector<uint8_t> public_key(pub_key_str.begin(), pub_key_str.end());
-    TXType copy;
-    copy.CopyFrom(txn);
+    try
+    {
+        std::string pub_key_str = wallets::get_public_key_string(txn.public_key());
+        std::vector<uint8_t> public_key(pub_key_str.begin(), pub_key_str.end());
+        TXType copy;
+        copy.CopyFrom(txn);
 
-    std::string *signature_str = copy.release_signature();
-    std::string message_str = copy.SerializeAsString();
-    std::vector<uint8_t> signature(signature_str->begin(), signature_str->end());
-    std::vector<uint8_t> message(message_str.begin(), message_str.end());
+        std::string *signature_str = copy.release_signature();
+        std::string message_str = copy.SerializeAsString();
+        std::vector<uint8_t> signature(signature_str->begin(), signature_str->end());
+        std::vector<uint8_t> message(message_str.begin(), message_str.end());
 
-    return verify_signature(message, signature, public_key);
+        return verify_signature(message, signature, public_key);
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 template bool signatures::verify_request<zera_validator::BlockSync>(zera_validator::BlockSync &);
 template bool signatures::verify_request<zera_validator::ValidatorSyncRequest>(zera_validator::ValidatorSyncRequest &);

@@ -32,7 +32,6 @@ void pre_process::process_txn(TXType *txn, const zera_txn::TRANSACTION_TYPE &txn
     uint64_t txn_nonce = 0;
 
     get_nonce(txn, txn_nonce);
-
     std::string txn_key = get_txn_key(txn_nonce, txn_hash);
 
     if (!db_block_txns::exist(txn_hash) && !db_transactions::exist(txn_key))
@@ -93,6 +92,7 @@ void pre_process::process_txn(TXType *txn, const zera_txn::TRANSACTION_TYPE &txn
             }
         }
     }
+
     recieved_txn_tracker::remove_txn(txn_hash);
 }
 template void pre_process::process_txn<zera_txn::GovernanceProposal>(zera_txn::GovernanceProposal *txn, const zera_txn::TRANSACTION_TYPE &txn_type);

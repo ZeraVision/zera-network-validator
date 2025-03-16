@@ -160,6 +160,7 @@ void get_validator_registration(zera_txn::Validator *self, zera_txn::ValidatorRe
     registration_request->mutable_base()->set_fee_id(ZERA_SYMBOL);
     registration_request->mutable_base()->mutable_public_key()->set_single(ValidatorConfig::get_public_key());
     registration_request->mutable_base()->set_nonce(nonce);
+
     registration_request->set_register_(true);
     google::protobuf::Timestamp *tsp = registration_request->mutable_base()->mutable_timestamp();
     tsp->CopyFrom(google::protobuf::util::TimeUtil::GetCurrentTime());

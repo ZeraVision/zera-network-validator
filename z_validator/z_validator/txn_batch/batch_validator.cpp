@@ -39,6 +39,7 @@ void txn_batch::batch_validator_registration(const zera_txn::TXNS &txns, const s
     leveldb::WriteBatch batch;
     leveldb::WriteBatch batch_lookup;
     leveldb::WriteBatch unbond_batch;
+    leveldb::WriteBatch archive_batch;
     for (auto txn : txns.validator_registration_txns())
     {
         
@@ -65,7 +66,6 @@ void txn_batch::batch_validator_registration(const zera_txn::TXNS &txns, const s
             }
             else
             {
-
                 unbond_batch.Put(pub_str, header.timestamp().SerializeAsString());
                 batch_lookup.Delete(pub_str);
             }

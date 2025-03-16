@@ -42,6 +42,7 @@ public:
 	static std::string set_current_fee_address(const std::string& fee_address); //set the current address of the validator fees
 	static uint32_t get_version();							//get the version of the validator
 	static std::string get_treasury_wallet();				//get the treasury wallet of the network
+	static std::string get_register();
 
 	static std::string get_block_height();
 	static bool get_dev_mode();
@@ -65,6 +66,7 @@ public:
 	static uint32_t version_;
 	static std::string block_height_;
 	static bool dev_mode_;
+	static std::string register_;
 
 	static void set_host(const std::string& host);
 	static void set_client_port(const std::string& client_port);
@@ -80,6 +82,7 @@ public:
 	static void set_staked_contract_id(const std::string& staked_contract_id);
 	static void set_block_height(const std::string& block_height);
 	static void set_dev_mode(bool dev_mode);
+	static void set_register(const std::string& register_str);
 };
 
 int get_seed(std::string& seed);

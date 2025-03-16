@@ -40,6 +40,38 @@
 #include "crypto/merkle.h"
 #include "logging/logging.h"
 
+void deregister_validator()
+{
+    std::string server_address = ValidatorConfig::get_seed_validators().at(0);
+    zera_validator::NonceResponse response = ValidatorNetworkClient::GetNonce(server_address);
+    uint64_t nonce = response.nonce() + 1;
+
+    KeyPair kp = ValidatorConfig::get_key_pair();
+
+    zera_txn::ValidatorRegistration reggy;
+    reggy.set_register_(false);
+    zera_txn::Validator *val = reggy.mutable_validator();
+    val->mutable_public_key()->set_single(ValidatorConfig::get_public_key());
+
+    zera_txn::BaseTXN *base = reggy.mutable_base();
+    base->mutable_public_key()->set_single(ValidatorConfig::get_public_key());
+    base->set_fee_id("$ZRA+0000");
+    base->set_fee_amount("10000000000");
+    base->set_nonce(nonce);
+
+    google::protobuf::Timestamp now_ts = google::protobuf::util::TimeUtil::GetCurrentTime();
+
+    google::protobuf::Timestamp *ts = base->mutable_timestamp();
+    ts->set_seconds(now_ts.seconds());
+
+    signatures::sign_txns(&reggy, kp);
+    std::vector<uint8_t> hash = Hashing::sha256_hash(reggy.SerializeAsString());
+    std::string hash_str(hash.begin(), hash.end());
+    base->set_hash(hash_str);
+
+    ValidatorNetworkClient::StartRegisterSeeds(&reggy);
+}
+
 void initial_archive()
 {
     zera_validator::BlockHeader last_header;
@@ -50,13 +82,19 @@ void initial_archive()
 }
 bool check_config()
 {
-    if (ValidatorConfig::get_host() == "" || ValidatorConfig::get_client_port() == "" || ValidatorConfig::get_validator_port() == "" || ValidatorConfig::get_seed_validators().size() == 0 || ValidatorConfig::get_private_key() == "" || ValidatorConfig::get_public_key() == "" || ValidatorConfig::get_fee_address_string() == "")
+    if (ValidatorConfig::get_host() == "" || ValidatorConfig::get_client_port() == ""
+     || ValidatorConfig::get_validator_port() == ""
+      || ValidatorConfig::get_seed_validators().size() == 0
+       || ValidatorConfig::get_private_key() == ""
+        || ValidatorConfig::get_public_key() == ""
+         || ValidatorConfig::get_fee_address_string() == "" || ValidatorConfig::get_register() == "N/A")
     {
         return false;
     }
 
     return true;
 }
+
 void RunValidator()
 {
     ValidatorServiceImpl validator_service;
@@ -71,9 +109,7 @@ void RunClient()
 
 void configure_self(zera_txn::ValidatorRegistration &registration_message)
 {
-    ValidatorConfig::set_config();
     std::string validator_config = ValidatorConfig::get_block_height();
-
     if (validator_config != "NONE" && validator_config != "")
     {
         Reorg::restore_database(validator_config);
@@ -136,38 +172,52 @@ int main()
     // open all databases
     open_dbs();
 
+    // set conffiguration
+    ValidatorConfig::set_config();
+
+    if (!check_config())
+    {
+        logging::print("Configuration is not set correctly. Please check your configuration file.");
+        return -1;
+    }
+
+    // deregister if needed
+    if (ValidatorConfig::get_register() == "false")
+    {
+        deregister_validator();
+        logging::print("You have been deregistered from the Zera Network. Your wallet will be free in 7 days.");
+        return -1;
+    }
+
     // create a validator registration message to apply to the blockchain
     zera_txn::ValidatorRegistration registration_message;
     configure_self(registration_message);
 
-    if (!check_config())
-    {
-        logging::print("Configuration Error: Please check your validator configuration file.");
-        return -1;
-    }
-
-    //Prints the startup logs
     debug::startup_logs();
 
-    // Send registration message and sync blockchain
+    int x = 0;
+
+    bool sync = true;
+
     ValidatorNetworkClient::StartRegisterSeeds(&registration_message);
     logging::print("Registering to Zera Network... 10 seconds", false);
     std::this_thread::sleep_for(std::chrono::seconds(10));
+    bool sync = ValidatorNetworkClient::StartSyncBlockchain(true);
+    logging::print("Successfull Network sync.", false);
 
-    if (!ValidatorNetworkClient::StartSyncBlockchain(true))
+    if (!sync)
     {
         return -1;
     }
 
-    logging::print("Successfull Network sync.", false);
+    zera_validator::BlockHeader last_header;
+    std::string last_key;
+    db_headers_tag::get_last_data(last_header, last_key);
+    std::string last_height = std::to_string(last_header.block_height());
 
-    // start validator and client threads
     std::thread thread1(RunValidator);
     std::thread thread2(RunClient);
 
-    // Send Heartbeat and finish startup process
-    uint64_t nonce = registration_message.base().nonce() + 1;
-    send_heartbeat(nonce);
     initial_archive();
     logging::print("Sending Heartbeat to Zera Network... 10 seconds", false);
     std::this_thread::sleep_for(std::chrono::seconds(10));

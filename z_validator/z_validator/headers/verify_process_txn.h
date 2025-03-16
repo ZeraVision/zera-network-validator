@@ -22,6 +22,7 @@
 #include "zera_status.h"
 #include "base58.h"
 #include "utils.h"
+#include "../logging/logging.h"
 
 namespace
 {
@@ -68,7 +69,6 @@ public:
             return ZeraStatus(ZeraStatus::Code::PARAMETER_ERROR, "verify_process.h: verify_txn: txn does not have required parameters.");
         }
 
-
         if(txn->base().public_key().has_smart_contract_auth() || txn->base().public_key().has_governance_auth())
         {
             return ZeraStatus(ZeraStatus::Code::PARAMETER_ERROR, "verify_process.h: verify_txn: txn has smart_contract_auth or governance_auth.");
@@ -78,14 +78,15 @@ public:
         uint64_t txn_nonce = 0;
 
         get_txn_nonce(&txn_copy, txn_nonce);
-
         std::string txn_key = get_txn_key(txn_nonce, txn_hash);
 
         if (db_transactions::exist(txn_key) || db_processed_txns::exist(txn_key) || db_block_txns::exist(txn_hash))
         {
             return ZeraStatus(ZeraStatus::Code::DUPLICATE_TXN_ERROR, "verify_process.h: verify_txn: TXN is already queued for block.");
         }
+
         ZeraStatus status = verify_identity(&txn_copy);
+
         if (!status.ok())
         {
             return status;

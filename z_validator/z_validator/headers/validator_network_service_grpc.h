@@ -109,13 +109,13 @@ private:
         // Start asynchronous processing of the request
         TXType *txn = new TXType();
         txn->CopyFrom(*request);
-
         if (recieved_txn_tracker::check_txn(txn->base().hash()))
         {
             logging::print("TXN already recieved");
             delete txn;
             return grpc::Status::CANCELLED;
         }
+
 
         recieved_txn_tracker::add_txn(txn->base().hash());
 
@@ -160,6 +160,7 @@ private:
 
             return;
         }
+
         zera_txn::TRANSACTION_TYPE txn_type;
         status = verify_txns::store_txn(request, txn_type);
 

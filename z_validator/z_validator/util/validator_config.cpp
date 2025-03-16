@@ -16,6 +16,7 @@ std::string ValidatorConfig::block_height_;
 std::mutex ValidatorConfig::mutex_;
 bool ValidatorConfig::dev_mode_ = false;       //by default dev mode is set to true
 std::string ValidatorConfig::treasury_wallet_;
+std::string ValidatorConfig::register_;
 
 void ValidatorConfig::generate_keys()
 {
@@ -83,6 +84,19 @@ void ValidatorConfig::set_configs(const std::string& line)
 			}
 
 			ValidatorConfig::set_dev_mode(dev);
+		}
+		else if(key == "register")
+		{
+			std::transform(value.begin(), value.end(), value.begin(), ::tolower);
+
+			if(value == "true" || value == "false")
+			{
+				ValidatorConfig::set_register(value);
+			}
+			else
+			{
+				ValidatorConfig::set_register("N/A");
+			}
 		}
 	}
 }
@@ -245,7 +259,16 @@ bool ValidatorConfig::get_dev_mode()
 {
 	return dev_mode_;
 }
+std::string ValidatorConfig::get_register()
+{
+	return register_;
+}
 
+void ValidatorConfig::set_register(const std::string& register_string)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	register_ = register_string;
+}
 void ValidatorConfig::set_block_height(const std::string& block_height)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
