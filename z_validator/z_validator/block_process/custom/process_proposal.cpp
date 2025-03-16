@@ -188,17 +188,17 @@ namespace
 
                     break;
                 }
-                // case zera_txn::TRANSACTION_TYPE::CONTRACT_TXN_TYPE:
-                // {
-                //     zera_txn::InstrumentContract net_txn;
-                //     status = parse_validate(net_txn, gov_txn.serialized_txn(), contract_adr, gov_txn.txn_hash());
-                //     if (!status.ok())
-                //     {
-                //         return status;
-                //     }
+                case zera_txn::TRANSACTION_TYPE::CONTRACT_TXN_TYPE:
+                {
+                    zera_txn::InstrumentContract net_txn;
+                    status = parse_validate(net_txn, gov_txn.serialized_txn(), contract_adr, gov_txn.txn_hash());
+                    if (!status.ok())
+                    {
+                        return status;
+                    }
 
-                //     break;
-                // }
+                    break;
+                }
                 case zera_txn::TRANSACTION_TYPE::VOTE_TYPE:
                 {
                     zera_txn::GovernanceVote net_txn;
