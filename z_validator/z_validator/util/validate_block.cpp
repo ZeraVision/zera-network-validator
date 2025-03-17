@@ -134,11 +134,13 @@ namespace
         {
             wallet_adr = wallets::generate_wallet(txn.validator().public_key());
             uint64_t txn_nonce = txn.base().nonce();
+            nonce_tracker::add_nonce(wallet_adr, txn_nonce, txn.base().hash());
             nonce_tracker::add_used_nonce(wallet_adr, txn_nonce);
         }
         for (auto txn : block->transactions().validator_heartbeat_txns())
         {
             uint64_t txn_nonce = txn.base().nonce();
+            nonce_tracker::add_nonce(wallet_adr, txn_nonce, txn.base().hash());
             nonce_tracker::add_used_nonce(wallet_adr, txn_nonce);
         }
     }

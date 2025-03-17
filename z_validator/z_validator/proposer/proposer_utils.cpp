@@ -26,7 +26,7 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
         {
             txn_hash_tracker::add_hash(wrapper.coin_txn().base().hash());
             block_txns->add_coin_txns()->CopyFrom(wrapper.coin_txn());
-            add_used_nonce(wrapper.coin_txn());
+            add_used_new_coin_nonce(wrapper.coin_txn());
         }
         if (!status.ok())
         {
