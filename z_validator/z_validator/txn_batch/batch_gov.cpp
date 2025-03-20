@@ -80,6 +80,14 @@ namespace
 
             break;
         }
+        case zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE:
+        {
+            zera_txn::SmartContractInstantiateTXN txn;
+            txn.ParseFromString(gov_txn.serialized_txn());
+            verify_txns::store_wrapper(&txn, wrapper);
+
+            break;
+        }
         case zera_txn::TRANSACTION_TYPE::SELF_CURRENCY_EQUIV_TYPE:
         {
             zera_txn::SelfCurrencyEquiv txn;
@@ -155,6 +163,22 @@ namespace
         case zera_txn::TRANSACTION_TYPE::SBT_BURN_TYPE:
         {
             zera_txn::BurnSBTTXN txn;
+            txn.ParseFromString(gov_txn.serialized_txn());
+            verify_txns::store_wrapper(&txn, wrapper);
+
+            break;
+        }
+        case zera_txn::TRANSACTION_TYPE::REQUIRED_VERSION:
+        {
+            zera_txn::RequiredVersion txn;
+            txn.ParseFromString(gov_txn.serialized_txn());
+            verify_txns::store_wrapper(&txn, wrapper);
+
+            break;
+        }
+        case zera_txn::TRANSACTION_TYPE::QUASH_TYPE:
+        {
+            zera_txn::QuashTXN txn;
             txn.ParseFromString(gov_txn.serialized_txn());
             verify_txns::store_wrapper(&txn, wrapper);
 

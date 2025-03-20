@@ -22,6 +22,7 @@ template ZeraStatus verify_txns::verify_txn<zera_txn::ComplianceTXN>(const zera_
 template ZeraStatus verify_txns::verify_txn<zera_txn::BurnSBTTXN>(const zera_txn::BurnSBTTXN *txn);
 template ZeraStatus verify_txns::verify_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN *txn);
 template ZeraStatus verify_txns::verify_txn<zera_txn::SmartContractInstantiateTXN>(const zera_txn::SmartContractInstantiateTXN *txn);
+template ZeraStatus verify_txns::verify_txn<zera_txn::RequiredVersion>(const zera_txn::RequiredVersion *txn);
 
 template <>
 void verify_txns::store_wrapper<zera_txn::MintTXN>(const zera_txn::MintTXN *txn, zera_txn::TXNWrapper &wrapper)
@@ -172,6 +173,12 @@ void verify_txns::store_wrapper<zera_txn::SmartContractInstantiateTXN>(const zer
 {
     wrapper.mutable_smart_contract_instantiate_txn()->CopyFrom(*txn);
     wrapper.set_txn_type(zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE);
+}
+template <>
+void verify_txns::store_wrapper<zera_txn::RequiredVersion>(const zera_txn::RequiredVersion *txn, zera_txn::TXNWrapper &wrapper)
+{
+    wrapper.mutable_required_version_txn()->CopyFrom(*txn);
+    wrapper.set_txn_type(zera_txn::TRANSACTION_TYPE::REQUIRED_VERSION);
 }
 
 template <typename TXType>

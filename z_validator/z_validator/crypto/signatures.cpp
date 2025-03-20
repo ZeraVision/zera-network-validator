@@ -477,6 +477,7 @@ template bool signatures::verify_txns<zera_txn::RevokeTXN>(zera_txn::RevokeTXN &
 template bool signatures::verify_txns<zera_txn::ComplianceTXN>(zera_txn::ComplianceTXN &);
 template bool signatures::verify_txns<zera_txn::BurnSBTTXN>(zera_txn::BurnSBTTXN &);
 template bool signatures::verify_txns<zera_txn::SmartContractInstantiateTXN>(zera_txn::SmartContractInstantiateTXN &);
+template bool signatures::verify_txns<zera_txn::RequiredVersion>(zera_txn::RequiredVersion &);
 
 template <>
 bool signatures::verify_txns<zera_txn::ValidatorRegistration>(zera_txn::ValidatorRegistration &tx)
