@@ -1,0 +1,7 @@
+db_validators
+    key:  generated public key
+    data: proto message Validator
+
+db_validator_lookup
+    key:  original public key
+    data: generated public key
