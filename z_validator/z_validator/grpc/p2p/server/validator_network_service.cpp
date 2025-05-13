@@ -1,5 +1,7 @@
 #include "validator_network_service_grpc.h"
 
+RateLimiter ValidatorServiceImpl::rate_limiter;
+
 grpc::Status ValidatorServiceImpl::ValidatorMint(grpc::ServerContext *context, const zera_txn::MintTXN *request, google::protobuf::Empty *response)
 {
     return RecieveRequest(context, request, response);
@@ -90,6 +92,16 @@ grpc::Status ValidatorServiceImpl::ValidatorRegistration(grpc::ServerContext *co
 }
 
 grpc::Status ValidatorServiceImpl::ValidatorSmartContractInstantiate(grpc::ServerContext *context, const zera_txn::SmartContractInstantiateTXN *request, google::protobuf::Empty *response)
+{
+    return RecieveRequest(context, request, response);
+}
+
+grpc::Status ValidatorServiceImpl::Gossip(grpc::ServerContext *context, const zera_validator::TXNGossip *request, google::protobuf::Empty *response)
+{
+    return RecieveGossip(context, request, response);
+}
+
+grpc::Status ValidatorServiceImpl::ValidatorAllowance(grpc::ServerContext *context, const zera_txn::AllowanceTXN *request, google::protobuf::Empty *response)
 {
     return RecieveRequest(context, request, response);
 }

@@ -62,9 +62,10 @@ namespace
     }
 
 }
-void txn_batch::batch_contracts(const zera_txn::TXNS &txns, const std::map<std::string, bool> txn_passed, leveldb::WriteBatch &contract_batch)
+void txn_batch::batch_contracts(const zera_txn::TXNS &txns, const std::map<std::string, bool> txn_passed)
 {
-    leveldb::WriteBatch max_batch;
+    rocksdb::WriteBatch max_batch;
+    rocksdb::WriteBatch contract_batch;
 
     for (auto contract : txns.contract_txns())
     {
@@ -155,10 +156,11 @@ void txn_batch::batch_contracts(const zera_txn::TXNS &txns, const std::map<std::
         }
     }
     db_contract_supply::store_batch(max_batch);
+    db_contracts::store_batch(contract_batch);
 }
 void txn_batch::batch_contract_updates(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
-    leveldb::WriteBatch contract_batch;
+    rocksdb::WriteBatch contract_batch;
     for (auto update : txns.contract_update_txns())
     {
         if (txn_passed.at(update.base().hash()))
@@ -246,7 +248,7 @@ void txn_batch::batch_contract_updates(const zera_txn::TXNS &txns, const std::ma
 
                         // remove all current proposals
                         zera_validator::ProposalLedger proposal_ledger;
-                        leveldb::WriteBatch remove_batch;
+                        rocksdb::WriteBatch remove_batch;
 
                         // remove all proposals from proposal db
                         std::string ledger_data;

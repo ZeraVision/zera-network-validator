@@ -2,7 +2,7 @@
 #include <vector>
 
 // Third-party library headers
-#include <leveldb/write_batch.h>
+#include <rocksdb/write_batch.h>
 
 // Project-specific headers
 #include "verify_process_txn.h"
@@ -24,11 +24,12 @@ namespace
         std::string last_key;
         db_headers_tag::get_last_data(last_header, last_key);
         proposers = SelectValidatorsByWeight(last_header.hash(), last_header.block_height()); //select validators for the lottery
+
     }
 
     void remove_transactions(const zera_txn::TXNS txns)
     {
-        leveldb::WriteBatch txn_batch;
+        rocksdb::WriteBatch txn_batch;
 
         for (auto txn : txns.mint_txns())
         {
@@ -43,7 +44,7 @@ namespace
 
     void remove_block(std::string key, std::string hash, zera_validator::Block *block)
     {
-        leveldb::WriteBatch contract_batch;
+        rocksdb::WriteBatch contract_batch;
 
         for (auto contract : block->transactions().contract_txns())
         {
@@ -61,19 +62,11 @@ namespace
         std::vector<zera_txn::Validator> proposers;
         get_proposers(proposers);
 
-        for (auto proposer : proposers)
+        if(proposer_tracker::check_proposer(block.block_header().public_key()))
         {
-            std::string generated_key;
-            std::string proposer_pub = wallets::get_public_key_string(proposer.public_key());
-            db_validator_lookup::get_single(proposer_pub, generated_key);
-
-            std::string block_pub = wallets::get_public_key_string(block.block_header().public_key());
-            if (generated_key == block_pub)
-            {
-                return ZeraStatus(ZeraStatus::Code::OK);
-            }
+            return ZeraStatus(ZeraStatus::Code::OK);
         }
-
+        
         return ZeraStatus(ZeraStatus::Code::PROPOSAL_ERROR, "vp_broadcast.cpp: verify_proposer: proposer does not match");
     }
 
@@ -83,7 +76,6 @@ ZeraStatus vp_broadcast::verify_broadcast_block(const zera_validator::Block *blo
 {
     zera_validator::Block block_copy;
     block_copy.CopyFrom(*block);
-
     ZeraStatus status = signatures::verify_block_validator(block_copy);
     if (!status.ok())
     {

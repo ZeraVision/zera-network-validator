@@ -164,7 +164,7 @@ namespace
     {
         std::vector<std::string> keys;
         std::vector<std::string> values;
-        leveldb::WriteBatch proposal_batch;
+        rocksdb::WriteBatch proposal_batch;
         db_proposals_temp::get_all_data(keys, values);
 
         int x = 0;
@@ -184,7 +184,7 @@ namespace
         std::vector<std::string> keys;
         std::vector<std::string> values;
         db_validator_unbond::get_all_data(keys, values);
-        leveldb::WriteBatch unbond_batch;
+        rocksdb::WriteBatch unbond_batch;
 
         int x = 0;
         while (x < keys.size())
@@ -207,8 +207,8 @@ namespace
     void update_proposal_ledgers(zera_validator::Block *block)
     {
         db_transactions::remove_single("1");
-        leveldb::WriteBatch process_ledger_batch;
-        leveldb::WriteBatch proposal_batch;
+        rocksdb::WriteBatch process_ledger_batch;
+        rocksdb::WriteBatch proposal_batch;
 
         for (auto result : block->transactions().proposal_result_txns())
         {
@@ -243,25 +243,17 @@ ZeraStatus block_process::store_txns(zera_validator::Block *block, bool archive,
 {
     logging::print("****************************\nStoring Block: " + std::to_string(block->block_header().block_height()));
     logging::print("****************************");
+
     block_process::store_wallets();
-    contract_price_tracker::store_prices();
-    nonce_tracker::store_used_nonce();
-    store_proposal_adjustment();
-    item_tracker::clear_items();
-    sbt_burn_tracker::clear_burns();
-    remove_unbonding_validators(block->block_header());
-    update_proposal_ledgers(block);
+    allowance_tracker::update_allowance_database();
 
     auto txns = block->transactions();
     std::map<std::string, bool> txn_passed;
     txn_batch::find_passed(txn_passed, txns);
-
-    leveldb::WriteBatch contract_batch;
-    leveldb::WriteBatch item_batch;
-    txn_batch::batch_contracts(txns, txn_passed, contract_batch);
+    txn_batch::batch_contracts(txns, txn_passed);
     txn_batch::batch_contract_updates(txns, txn_passed);
-    txn_batch::batch_item_mint(txns, txn_passed, item_batch);
-    txn_batch::batch_nft_transfer(txns, txn_passed, item_batch);
+    txn_batch::batch_item_mint(txns, txn_passed);
+    txn_batch::batch_nft_transfer(txns, txn_passed);
     txn_batch::batch_proposals(txns, txn_passed, block->block_header().timestamp().seconds());
     txn_batch::batch_votes(txns, txn_passed);
     txn_batch::batch_proposal_results(txns, txn_passed);
@@ -274,12 +266,19 @@ ZeraStatus block_process::store_txns(zera_validator::Block *block, bool archive,
     txn_batch::batch_validator_heartbeat(txns, txn_passed, block->block_header().block_height());
     txn_batch::batch_smart_contract(txns, txn_passed);
     txn_batch::batch_instantiate(txns, txn_passed);
+    txn_batch::batch_allowance_txns(txns, txn_passed, block->block_header().timestamp().seconds());
+    std::string block_height_str = std::to_string(block->block_header().block_height());
+    contract_price_tracker::store_prices();
+    nonce_tracker::store_used_nonce(block_height_str);
+    store_proposal_adjustment();
+    item_tracker::clear_items();
+    sbt_burn_tracker::clear_burns();
+    remove_unbonding_validators(block->block_header());
+    update_proposal_ledgers(block);
 
-    db_contracts::store_batch(contract_batch);
-    db_contract_items::store_batch(item_batch);
     supply_tracker::supply_to_database();
     std::string block_height = std::to_string(block->block_header().block_height());
-    
+
     update_proposal_heartbeat(block);
 
     if (archive)
@@ -295,6 +294,6 @@ ZeraStatus block_process::store_txns(zera_validator::Block *block, bool archive,
     gov_process::check_ledgers(block);
     restricted_keys_check::check_quash_ledger(block);
     txn_batch::batch_required_version(txns, txn_passed);
-
+    logging::print("****************************\nDONE Storing Block: " + std::to_string(block->block_header().block_height()));
     return ZeraStatus();
 }

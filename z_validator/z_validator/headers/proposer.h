@@ -22,6 +22,7 @@
 #include "verify_process_txn.h"
 #include "utils.h"
 #include "../logging/logging.h"
+#include "../util/stopwatch.h"
 
 struct WeightedValidator
 {
@@ -43,6 +44,49 @@ struct transactions
     std::vector<std::string> gov_values;
 };
 
+struct BlockManager
+{
+    bool has_transactions;
+    bool my_block;
+    int proposal_timer;
+    int last_heartbeat;
+    bool same_block;
+    std::string wallet_adr;
+    Stopwatch block_watch;
+    uint32_t proposer_index;
+    uint32_t block_sync_attempts;
+    zera_validator::BlockHeader last_header;
+    std::string last_key;
+    std::vector<zera_txn::Validator> proposers;
+    zera_validator::BlockHeader new_header;
+    std::string new_key;
+    std::string proposer_pub;
+    transactions txns;
+
+    void reset()
+    {
+        txns.gov_keys.clear();
+        txns.gov_values.clear();
+        txns.keys.clear();
+        txns.values.clear();
+        txns.processed_keys.clear();
+        txns.processed_values.clear();
+        txns.timed_keys.clear();
+        txns.timed_values.clear();
+        txns.sc_keys.clear();
+        txns.sc_values.clear();
+        proposer_index = 0;   
+        block_sync_attempts = 0;
+        last_header.Clear(); 
+        last_key = "";
+        proposers.clear();
+        has_transactions = false;
+        block_watch.start();
+        same_block = true;
+        my_block = false;
+    }
+};
+
 std::vector<zera_txn::Validator> SelectValidatorsByWeight(const std::string &seed_hash, const uint64_t &block_height);
 
 class proposing
@@ -51,9 +95,10 @@ public:
     static ZeraStatus validate_block(zera_validator::Block &block);
     static void set_txn_token_fees(std::string txn_hash, std::string contract_id, std::string address, boost::multiprecision::uint256_t amount);
     static ZeraStatus process_txns(const std::vector<std::string> &values, const std::vector<std::string> &keys, zera_validator::Block *block, bool timed = false, const std::string &fee_address = "");
-    static ZeraStatus make_block(zera_validator::Block *block, const transactions &verify_txns);
+    static ZeraStatus make_block(zera_validator::Block *block, const transactions &verify_txns, const Stopwatch& stopwatch);
     static ZeraStatus make_block_sync(zera_validator::Block *block, const transactions &txns, const std::string &fee_address = "");
-    static bool add_processed(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block);
+    static bool add_processed_sync(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block);
+    static bool add_processed(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block, const Stopwatch& stopwatch);
     static void add_temp_wallet_balance(const std::vector<std::string> &txn_hash_vec, const std::string &fee_address);
     static void set_all_token_fees(zera_validator::Block *block, const std::vector<std::string> &txn_hash_vec, const std::string &fee_address);
 
@@ -62,7 +107,6 @@ public:
         bool success = false;
         if (db_transactions::get_all_data(txns.keys, txns.values))
         {
-
             success = true;
         }
         if (db_processed_txns::get_all_data(txns.processed_keys, txns.processed_values))
@@ -246,7 +290,7 @@ private:
     }
     static ZeraStatus processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *block_txns, bool timed, const std::string &fee_address);
     static void add_transaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *block_txns);
-    static void add_used_new_coin_nonce(const zera_txn::CoinTXN &txn, bool timed = false);
+    static void add_used_new_coin_nonce(const zera_txn::CoinTXN &txn, const zera_txn::TXNStatusFees& status_fees, bool timed = false);
     static void set_token_fees(std::string contract_id, std::string address, boost::multiprecision::uint256_t amount, std::map<std::string, std::map<std::string, boost::multiprecision::uint256_t>> &token_fees);
     static std::mutex mtx;
     static std::map<std::string, std::map<std::string, std::map<std::string, boost::multiprecision::uint256_t>>> txn_token_fees;

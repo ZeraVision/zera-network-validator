@@ -48,8 +48,8 @@ void quash_tracker::quash_result(zera_txn::TXNS *txns)
     }
 
     std::lock_guard<std::mutex> lock(mtx);
-    leveldb::WriteBatch quash_batch;
-    leveldb::WriteBatch timed_batch;
+    rocksdb::WriteBatch quash_batch;
+    rocksdb::WriteBatch timed_batch;
 
     std::string quash_data;
     for (auto quash : quash_list)

@@ -1,7 +1,7 @@
 #ifndef _CONST_H_
 #define _CONST_H_
 
-constexpr int VERSION = 101000; //version of the validator
+constexpr int VERSION = 101001; //version of the validator
 //1000000000000000000 1 dollar
 //10000000000000000   1 cent
 //1 000 000 000 000 000 000 1 dollar
@@ -51,6 +51,7 @@ const unsigned long long SAFE_SEND = 100000000000000;                           
 const unsigned long long COMPLIANCE_TXN_FEE = 1000000000000000;                  //0.1 cents
 const unsigned long long DELEGATED_VOTE_TXN_FEE = 1000000000000000;              //0.1 cents
 const unsigned long long DELEGATED_FEE = 1000000000000000;                       //0.1 cents
+const unsigned long long ALLOWANCE_TXN_FEE = 1000000000000000;                   //0.1 cents
 
 
 
@@ -85,31 +86,32 @@ constexpr auto ZERITE = "ZERITE";
 constexpr auto ZERA_SYMBOL = "$ZRA+0000";
 constexpr auto QUALIFIED = "QUALIFIED";
 constexpr auto ANY = "ANY";
-constexpr auto VALIDATOR_CONFIG = "/volume/config/validator.conf";
-constexpr auto EXPLORER_CONFIG = "/volume/config/explorer_servers.conf";
-constexpr auto DB_DIRECTORY = "/volume/blockchain/";
-constexpr auto DB_REORGS = "/volume/reorgs/";
-constexpr auto DB_VALIDATOR = "/volume/blockchain/validators";
-constexpr auto DB_BLOCK = "/volume/blockchain/blocks";
-constexpr auto DB_BLOCK_HEADER = "/volume/blockchain/block_headers";
-constexpr auto DB_HASH_LOOKUP = "/volume/blockchain/hash_lookup";
-constexpr auto DB_HASH_INDEX = "/volume/blockchain/hash_index";
-constexpr auto DB_WALLET = "/volume/blockchain/wallets";
-constexpr auto DB_RESTRICTED_WALLET = "/volume/blockchain/restricted_wallets";
-constexpr auto DB_WALLET_TEMP = "/volume/blockchain/wallets_temp";
-constexpr auto DB_CONTRACT = "/volume/blockchain/contracts";
-constexpr auto DB_CONTRAT_SUPPLY = "/volume/blockchain/contract_supply";
-constexpr auto DB_ITEMIZED_CONTRACT = "/volume/blockchain/contract_supply";
-constexpr auto DB_TRANSACTIONS = "/volume/blockchain/transactions";
-constexpr auto DB_BLOCK_TXNS = "/volume/blockchain/block_transactions";
-constexpr auto DB_SMART_CONTRACT = "/volume/blockchain/smart_contracts";
-constexpr auto DB_VOTING = "/volume/blockchain/govern_voting";
-constexpr auto DB_PROPOSAL = "/volume/blockchain/govern_proposal";
+constexpr auto VALIDATOR_CONFIG = "/data/config/validator.conf";
+constexpr auto EXPLORER_CONFIG = "/data/config/explorer_servers.conf";
+constexpr auto DB_DIRECTORY = "/data/blockchain/";
+constexpr auto DB_REORGS = "/data/reorgs/";
+constexpr auto DB_VALIDATOR = "/data/blockchain/validators";
+constexpr auto DB_BLOCK = "/data/blockchain/blocks";
+constexpr auto DB_BLOCK_HEADER = "/data/blockchain/block_headers";
+constexpr auto DB_HASH_LOOKUP = "/data/blockchain/hash_lookup";
+constexpr auto DB_HASH_INDEX = "/data/blockchain/hash_index";
+constexpr auto DB_WALLET = "/data/blockchain/wallets";
+constexpr auto DB_RESTRICTED_WALLET = "/data/blockchain/restricted_wallets";
+constexpr auto DB_WALLET_TEMP = "/data/blockchain/wallets_temp";
+constexpr auto DB_CONTRACT = "/data/blockchain/contracts";
+constexpr auto DB_CONTRAT_SUPPLY = "/data/blockchain/contract_supply";
+constexpr auto DB_ITEMIZED_CONTRACT = "/data/blockchain/contract_supply";
+constexpr auto DB_TRANSACTIONS = "/data/blockchain/transactions";
+constexpr auto DB_BLOCK_TXNS = "/data/blockchain/block_transactions";
+constexpr auto DB_SMART_CONTRACT = "/data/blockchain/smart_contracts";
+constexpr auto DB_VOTING = "/data/blockchain/govern_voting";
+constexpr auto DB_PROPOSAL = "/data/blockchain/govern_proposal";
 constexpr auto EMPTY_KEY = "";
-constexpr auto SEED_DIRECTORY = "/z_validator/config/seed_validators.txt";
 
 constexpr auto BURN_WALLET = ":fire:";
 constexpr auto TREASURY_WALLET = "46oLKvxWo9JASRrhJN3i4FDBhJPXTCgr1GtTe8pe8ECc";
 constexpr auto PREPROCESS_PLACEHOLDER = "ThiSiSaPrePrOcesSPlaCeHolDer";
+constexpr auto TREASURY_KEY = "TREASURY_KEY";
+
 
 #endif

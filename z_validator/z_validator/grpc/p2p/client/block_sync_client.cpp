@@ -69,21 +69,20 @@ namespace
                 status.prepend_message("block_sync_client: BlockSyncProcessResponse");
                 return status;
             }
+            logging::print("Block batch size: " + std::to_string(block_batch->blocks().size()), true);
             for (auto block : block_batch->blocks())
             {
+                logging::print("Processing block with height: " + std::to_string(block.block_header().block_height()), true);
                 status = ValidateBlock::process_block_from_sync(block);
-
                 if (!status.ok())
                 {
                     if(status.code() == ZeraStatus::Code::BLOCKCHAIN_DUPLICATE_ERROR)
                     {
                         continue;
                     }
-
                     status.prepend_message("block_sync_client: BlockSyncProcessResponse");
                     return status;
                 }
-
             }
         }
         return ZeraStatus(ZeraStatus::Code::OK);

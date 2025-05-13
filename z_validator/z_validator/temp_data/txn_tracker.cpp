@@ -35,7 +35,7 @@ void txn_tracker::update_txn_ledger()
     {
         return;
     }
-    leveldb::WriteBatch txn_remove_batch;
+    rocksdb::WriteBatch txn_remove_batch;
 
     for(auto txn : txn_tracker.txn_ids())
     {

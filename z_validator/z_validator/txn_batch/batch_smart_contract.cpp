@@ -2,10 +2,12 @@
 
 #include "db_base.h"
 #include "hashing.h"
+#include "../logging/logging.h"
+#include "base58.h"
 
 void txn_batch::batch_smart_contract(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
-    leveldb::WriteBatch contract_batch;
+    rocksdb::WriteBatch contract_batch;
 
     for (auto txn : txns.smart_contracts())
     {
@@ -20,7 +22,7 @@ void txn_batch::batch_smart_contract(const zera_txn::TXNS &txns, const std::map<
 
 void txn_batch::batch_instantiate(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
-    leveldb::WriteBatch contract_batch;
+    rocksdb::WriteBatch contract_batch;
 
     for (auto txn : txns.smart_contract_instantiate_txns())
     {

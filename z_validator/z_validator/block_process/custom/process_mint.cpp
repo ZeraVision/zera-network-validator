@@ -34,20 +34,17 @@ namespace
 
         if ((circulation + mint_amount) > max_supply)
         {
-            logging::print(supply.DebugString());
 
             if (supply.release_size() > 0)
             {
                 std::string key;
                 zera_validator::BlockHeader header;
                 db_headers_tag::get_last_data(header, key);
-                logging::print("last timestamp ", std::to_string(header.timestamp().seconds()));
                 int remove = 0;
                 for (auto release : supply.release())
                 {
                     if (header.timestamp().seconds() >= release.release_date().seconds())
                     {
-                        logging::print("add to max supply");
                         uint256_t release_amount(release.amount());
                         max_supply += release_amount;
                         remove++;
@@ -83,9 +80,6 @@ namespace
     ZeraStatus mint(const zera_txn::MintTXN *txn, zera_txn::InstrumentContract &contract)
     {
 
-        logging::print("wallet_key", base58_encode(txn->recipient_address()));
-        logging::print("contract_id", txn->contract_id());
-
         if (contract.type() != zera_txn::CONTRACT_TYPE::TOKEN)
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_mint.cpp: qualified_mint: Invalid contract type.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
@@ -115,7 +109,7 @@ namespace
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_transfer: Compliance check failed. output wallet.", zera_txn::TXN_STATUS::COMPLIANCE_CHECK_FAILED);
         }
 
-        balance_tracker::add_txn_balance(txn->recipient_address() + txn->contract_id(), mint_amount, txn->base().hash());
+        balance_tracker::add_txn_balance(txn->recipient_address(), txn->contract_id(), mint_amount, txn->base().hash());
         supply_tracker::store_supply(contract, mint_amount);
 
         return ZeraStatus();
@@ -139,7 +133,6 @@ ZeraStatus block_process::process_txn<zera_txn::MintTXN>(const zera_txn::MintTXN
     }
 
     status = block_process::process_simple_fees(txn, status_fees, zera_txn::TRANSACTION_TYPE::MINT_TYPE, fee_address);
-
     if (!status.ok())
     {
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, status.message(), status.txn_status());
@@ -148,7 +141,6 @@ ZeraStatus block_process::process_txn<zera_txn::MintTXN>(const zera_txn::MintTXN
     zera_txn::InstrumentContract contract;
 
     status = block_process::get_contract(txn->contract_id(), contract);
-
     if (!status.ok())
     {
         return ZeraStatus(ZeraStatus::Code::TXN_FAILED, status.message(), status.txn_status());

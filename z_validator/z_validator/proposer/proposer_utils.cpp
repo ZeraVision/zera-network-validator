@@ -2,7 +2,7 @@
 #include "../governance/gov_process.h"
 #include "../logging/logging.h"
 
-void proposing::add_used_new_coin_nonce(const zera_txn::CoinTXN &txn, bool timed)
+void proposing::add_used_new_coin_nonce(const zera_txn::CoinTXN &txn, const zera_txn::TXNStatusFees &status_fees, bool timed)
 {
     int x = 0;
     for (auto public_key : txn.auth().public_key())
@@ -13,9 +13,20 @@ void proposing::add_used_new_coin_nonce(const zera_txn::CoinTXN &txn, bool timed
         nonce_tracker::add_used_nonce(wallet_adr, nonce);
         x++;
     }
+
+    if (status_fees.status() == zera_txn::TXN_STATUS::OK)
+    {
+        x = 0;
+        for (auto wallet_adr : txn.auth().allowance_address())
+        {
+            uint64_t nonce = txn.auth().allowance_nonce(x);
+            nonce_tracker::add_used_nonce(wallet_adr, nonce);
+            x++;
+        }
+    }
 }
 
-ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *block_txns, bool timed, const std::string& fee_address)
+ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *block_txns, bool timed, const std::string &fee_address)
 {
     ZeraStatus status;
 
@@ -24,9 +35,11 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
         status = proposing::unpack_process_wrapper(wrapper.mutable_coin_txn(), block_txns, wrapper.txn_type(), timed, fee_address, wrapper.smart_contract_txn());
         if (status.ok())
         {
+            txn_hash_tracker::add_allowance_hash(wrapper.coin_txn().base().hash());
             txn_hash_tracker::add_hash(wrapper.coin_txn().base().hash());
             block_txns->add_coin_txns()->CopyFrom(wrapper.coin_txn());
-            add_used_new_coin_nonce(wrapper.coin_txn());
+            auto size = block_txns->txn_fees_and_status_size() - 1;
+            add_used_new_coin_nonce(wrapper.coin_txn(), block_txns->txn_fees_and_status(size));
         }
         if (!status.ok())
         {
@@ -230,7 +243,7 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
             add_used_nonce(wrapper.burn_sbt_txn());
         }
     }
-    else if(wrapper.has_validator_heartbeat_txn())
+    else if (wrapper.has_validator_heartbeat_txn())
     {
         status = proposing::unpack_process_wrapper(wrapper.mutable_validator_heartbeat_txn(), block_txns, zera_txn::TRANSACTION_TYPE::VALIDATOR_HEARTBEAT_TYPE, timed, fee_address, wrapper.smart_contract_txn());
         if (status.ok())
@@ -240,7 +253,7 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
             add_used_nonce(wrapper.validator_heartbeat_txn());
         }
     }
-    else if(wrapper.has_validator_registration_txn())
+    else if (wrapper.has_validator_registration_txn())
     {
         status = proposing::unpack_process_wrapper(wrapper.mutable_validator_registration_txn(), block_txns, zera_txn::TRANSACTION_TYPE::VALIDATOR_REGISTRATION_TYPE, timed, fee_address, wrapper.smart_contract_txn());
         if (status.ok())
@@ -250,7 +263,7 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
             add_used_nonce(wrapper.validator_registration_txn());
         }
     }
-    else if(wrapper.has_smart_contract_instantiate_txn())
+    else if (wrapper.has_smart_contract_instantiate_txn())
     {
         status = proposing::unpack_process_wrapper(wrapper.mutable_smart_contract_instantiate_txn(), block_txns, zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE, timed, fee_address, wrapper.smart_contract_txn());
         if (status.ok())
@@ -260,19 +273,29 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
             add_used_nonce(wrapper.smart_contract_instantiate_txn());
         }
     }
-    else if(wrapper.has_required_version_txn())
+    else if (wrapper.has_required_version_txn())
     {
         status = proposing::unpack_process_wrapper(wrapper.mutable_required_version_txn(), block_txns, zera_txn::TRANSACTION_TYPE::REQUIRED_VERSION, timed, fee_address, wrapper.smart_contract_txn());
-        if(status.ok())
+        if (status.ok())
         {
             txn_hash_tracker::add_hash(wrapper.required_version_txn().base().hash());
             block_txns->mutable_required_version_txn()->CopyFrom(wrapper.required_version_txn());
         }
     }
-    
-
+    else if (wrapper.has_allowance_txn())
+    {
+        status = proposing::unpack_process_wrapper(wrapper.mutable_allowance_txn(), block_txns, zera_txn::TRANSACTION_TYPE::ALLOWANCE_TYPE, timed, fee_address, wrapper.smart_contract_txn());
+        if (status.ok())
+        {
+            txn_hash_tracker::add_hash(wrapper.allowance_txn().base().hash());
+            block_txns->add_allowance_txns()->CopyFrom(wrapper.allowance_txn());
+        }
+    }
     else
     {
+
+        std::string a_thing = zera_txn::TRANSACTION_TYPE_Name(wrapper.txn_type());
+        logging::print("No transaction type found: ", a_thing, true);
         status = ZeraStatus(ZeraStatus::Code::TXN_FAILED, "No transaction type found", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
     }
 

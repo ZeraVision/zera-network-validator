@@ -48,23 +48,23 @@ namespace
             }
             else if (add_amount > 0)
             {
-                status = balance_tracker::subtract_txn_balance(voting_wallet, add_amount, txn->base().hash());
+                status = balance_tracker::subtract_txn_balance("v_" + wallet_adr, contract_id, add_amount, txn->base().hash());
                 if (!status.ok())
                 {
                     status.prepend_message("process_delegated_voting.cpp: process_delegated_fees: add_balance:");
                     return status;
                 }
-                balance_tracker::add_txn_balance(wallet_adr + contract_id, add_amount, txn->base().hash());
+                balance_tracker::add_txn_balance(wallet_adr, contract_id, add_amount, txn->base().hash());
             }
             else if (sub_amount > 0)
             {
-                status = balance_tracker::subtract_txn_balance(wallet_adr + contract_id, sub_amount, txn->base().hash());
+                status = balance_tracker::subtract_txn_balance(wallet_adr, contract_id, sub_amount, txn->base().hash());
                 if (!status.ok())
                 {
                     status.prepend_message("process_delegated_voting.cpp: process_delegated_fees: sub balance: wallet_adr: " + base58_encode(wallet_adr) + " contract_id: " + contract_id);
                     return status;
                 }
-                balance_tracker::add_txn_balance(voting_wallet, sub_amount, txn->base().hash());
+                balance_tracker::add_txn_balance("v_" + wallet_adr, contract_id, sub_amount, txn->base().hash());
             }
         }
 

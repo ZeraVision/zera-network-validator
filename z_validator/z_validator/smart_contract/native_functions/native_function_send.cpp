@@ -123,7 +123,7 @@ namespace
     }
 
 
-    void set_base(zera_txn::BaseTXN *base, const SenderDataType &sender)
+    void set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
         std::string sc_auth = "sc_" + sender.smart_contract_instance;
         base->mutable_public_key()->set_smart_contract_auth(sc_auth);
@@ -133,7 +133,7 @@ namespace
         base->set_safe_send(false);
     }
 
-    std::string delegate_set_base(zera_txn::BaseTXN *base, const SenderDataType &sender, const std::string& delegate_wallet)
+    std::string delegate_set_base(zera_txn::BaseTXN *base, SenderDataType &sender, const std::string& delegate_wallet)
     {
         std::string sc_auth = "";
 
@@ -162,7 +162,7 @@ namespace
         return sc_auth;
     }
 
-    std::string current_set_base(zera_txn::BaseTXN *base, const SenderDataType &sender)
+    std::string current_set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
         std::string sc_auth = "sc_" + sender.current_smart_contract_instance;
         base->mutable_public_key()->set_smart_contract_auth(sc_auth);
@@ -174,7 +174,7 @@ namespace
         return sc_auth;
     }
 
-    void set_auth(zera_txn::TransferAuthentication *auth, const SenderDataType &sender)
+    void set_auth(zera_txn::TransferAuthentication *auth, SenderDataType &sender)
     {
         std::string wallet_address = sender.smart_contract_wallet;
         uint64_t nonce = 0;
@@ -184,7 +184,7 @@ namespace
         auth->add_public_key()->set_smart_contract_auth("sc_" + sender.smart_contract_instance);
     }
 
-    void delegate_set_auth(zera_txn::TransferAuthentication *auth, const SenderDataType &sender, const std::string &sc_auth, const std::string &delegate_wallet)
+    void delegate_set_auth(zera_txn::TransferAuthentication *auth, SenderDataType &sender, const std::string &sc_auth, const std::string &delegate_wallet)
     {
         uint64_t nonce = 0;
         nonce_tracker::get_nonce(delegate_wallet, nonce);
@@ -207,7 +207,7 @@ namespace
         output->set_wallet_address(wallet);
     }
 
-    std::string process_txn(const SenderDataType &sender, const zera_txn::CoinTXN &txn)
+    std::string process_txn(SenderDataType &sender, const zera_txn::CoinTXN &txn)
     {
         std::string value;
         db_smart_contracts::get_single(sender.block_txns_key, value);
@@ -219,6 +219,7 @@ namespace
 
         if (status.ok())
         {
+            sender.txn_hashes.push_back(txn.base().hash());
             block_txns.add_coin_txns()->CopyFrom(txn);
             txn_hash_tracker::add_hash(txn.base().hash());
             uint64_t nonce = txn.base().nonce();
@@ -230,7 +231,7 @@ namespace
         return zera_txn::TXN_STATUS_Name(status.txn_status());
     }
 
-    std::string create_transfer(const SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet, bool transfer_all_zra = false)
+    std::string create_transfer(SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet, bool transfer_all_zra = false)
     {
         uint256_t contract_fee_amount = 0;
         uint256_t txn_fee_amount = 0;
@@ -270,7 +271,7 @@ namespace
         return process_txn(sender, txn);
     }
 
-    std::string delegate_create_transfer(const SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet, const std::string delegate_wallet, bool transfer_all_zra = false)
+    std::string delegate_create_transfer(SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet, const std::string delegate_wallet, bool transfer_all_zra = false)
     {
         uint256_t contract_fee_amount = 0;
         uint256_t txn_fee_amount = 0;
@@ -316,7 +317,7 @@ namespace
         return process_txn(sender, txn);
     }
 
-    std::string current_create_transfer(const SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet, bool transfer_all_zra = false)
+    std::string current_create_transfer(SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet, bool transfer_all_zra = false)
     {
         uint256_t contract_fee_amount = 0;
         uint256_t txn_fee_amount = 0;

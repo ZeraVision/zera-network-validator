@@ -16,6 +16,7 @@ class proposer_tracker{
     static void add_proposer(const zera_txn::Validator& proposer_data);
     static void get_current_proposers(std::vector<zera_txn::Validator>& proposer_data);
     static void clear_proposers();
+    static bool check_proposer(const zera_txn::PublicKey& proposer_key);
 
     private:
     static std::vector<zera_txn::Validator> proposers;
@@ -25,9 +26,11 @@ class proposer_tracker{
 class txn_hash_tracker{
     public:
     static void add_hash(const std::string& txn_hash);
-    static void get_hash(std::vector<std::string> &txn_hash);
+    static void get_hash(std::vector<std::string> &txn_hash, std::vector<std::string> &allowance_txn_hash);
+    static void add_allowance_hash(const std::string &txn_hash);
 
     private:
+    static std::vector<std::string> allowance_txn_hash_vec;
     static std::vector<std::string> txn_hash_vec;
     static std::mutex mtx;
 };
@@ -35,11 +38,7 @@ class txn_hash_tracker{
 class status_fee_tracker{
     public:
     static void add_fee(const zera_txn::TXNStatusFees& status_fee);
-    static void get_status(zera_txn::TXNStatusFees &status_fee, const std::string& key);
-
-    private:
-    static std::map<std::string, zera_txn::TXNStatusFees> status_fees;
-    static std::mutex mtx;
+    static bool get_status(zera_txn::TXNStatusFees &status_fee, const std::string& key);
 };
 class nonce_txn_tracker{
     public:
@@ -60,8 +59,7 @@ class nonce_tracker
     static void add_nonce(const std::string &wallet_address, const uint64_t &nonce, const std::string &txn_hash);
     static bool get_nonce(const std::string& wallet_address, uint64_t &nonce);
     static void add_used_nonce(const std::string &wallet_address, const uint64_t &nonce);
-    static void store_used_nonce();
-    static void store_all();
+    static void store_used_nonce(const std::string& block_height);
     private:
     static std::map<std::string, uint64_t> wallet_nonce;
     static std::map<std::string, uint64_t> used_nonce;
@@ -81,9 +79,13 @@ private:
 
 class balance_tracker{
     public:
-    static void add_txn_balance(const std::string& wallet_key, const uint256_t &amount, const std::string &txn_hash);
-    static ZeraStatus subtract_txn_balance(const std::string& wallet_key, const uint256_t &amount, const std::string &txn_hash);
-    static void get_txn_balance(const std::string &txn_hash, std::map<std::string, uint256_t> &add_txn_balance, std::map<std::string, uint256_t> &subtract_txn_balance);
+    static void add_txn_balance(const std::string &wallet_address, const std::string &contract_id, const uint256_t &amount, const std::string &txn_hash);
+    static void add_txn_balance_premint(const google::protobuf::RepeatedPtrField<zera_txn::PreMintWallet>& premints, const std::string &contract_id, const std::string &txn_hash);
+    static void add_txn_balance_transfer(const google::protobuf::RepeatedPtrField<zera_txn::OutputTransfers> &transfers, const std::string &contract_id, const std::string &txn_hash);
+    static ZeraStatus subtract_txn_balance_transfer_allowance(const google::protobuf::RepeatedPtrField<zera_txn::InputTransfers> &transfers, const std::vector<std::string> &wallet_adrs, const std::string &contract_id, const std::string &txn_hash);
+    static ZeraStatus subtract_txn_balance_transfer(const google::protobuf::RepeatedPtrField<zera_txn::InputTransfers> &transfers, const std::vector<zera_txn::PublicKey> &public_keys, const std::string &contract_id, const std::string &txn_hash);
+    static ZeraStatus subtract_txn_balance(const std::string& wallet_address, const std::string& contract_id, const uint256_t &amount, const std::string &txn_hash);
+    static void get_txn_balance(const std::string &txn_hash, zera_validator::BalanceTracker &add_txn_balance, zera_validator::BalanceTracker &subtract_txn_balance);
     static void add_balance(const std::string wallet_address, const std::string contract_id, const uint256_t &amount);
     static ZeraStatus remove_balance(const std::string wallet_address, const std::string contract_id, const uint256_t &amount);
     static void change_txn_address(const std::string old_wallet_address, const std::string new_wallet_address);
@@ -95,6 +97,19 @@ class balance_tracker{
     static std::map<std::string, uint256_t> block_balances;
     static std::map<std::string, std::map<std::string, uint256_t>> add_txn_balances;
     static std::map<std::string, std::map<std::string, uint256_t>> subtract_txn_balances;
+    static std::mutex mtx;
+};
+class allowance_tracker{
+    public:
+    static void add_txn_to_pre_process(const std::string &block_hash);
+    static bool check_allowance(const std::string& wallet_adr, const zera_txn::PublicKey &public_key, const std::string& contract_id, const uint256_t& input_temp, const std::string& txn_hash, const zera_txn::PublicKey& pk);
+    static void remove_txn_allowance(const std::string &block_hash);
+    static void add_block_allowance(const std::vector<std::string> &allowance_txn_hash_vec);
+    static void update_allowance_database();
+
+    private:
+    static std::map<std::string, zera_validator::AllowanceState> block_allowances;
+    static std::map<std::string, std::map<std::string, zera_validator::AllowanceState>> add_txn_allowance_state;
     static std::mutex mtx;
 };
 class quash_tracker{

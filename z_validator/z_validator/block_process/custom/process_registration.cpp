@@ -240,11 +240,16 @@ ZeraStatus block_process::process_txn<zera_txn::ValidatorRegistration>(const zer
     {
         if (!txn->register_())
         {
+            logging::print("Validator does not exist, cannot unbond. 1");
             status = ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_registration.cpp: process_txn: Validator does not exist, cannot unbond.", zera_txn::TXN_STATUS::VALIDATOR_ADDRESS);
             status_fees.set_status(status.txn_status());
             nonce_tracker::add_nonce(wallet_adr, nonce, txn->base().hash());
             return status;
         }
+    }
+    else
+    {
+        logging::print("Validator does exist");
     }
 
     if(txn->register_())

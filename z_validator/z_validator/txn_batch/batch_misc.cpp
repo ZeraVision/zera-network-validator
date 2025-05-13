@@ -2,6 +2,98 @@
 #include "db_base.h"
 #include "base58.h"
 #include "validators.h"
+#include "../logging/logging.h"
+#include <ctime>
+#include <chrono>
+#include "wallets.h"
+
+void txn_batch::batch_allowance_txns(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, const uint64_t &block_time)
+{
+    rocksdb::WriteBatch allowance_batch;
+
+    for (auto allowance : txns.allowance_txns())
+    {
+        if (txn_passed.at(allowance.base().hash()))
+        {
+            std::string contract_id = allowance.contract_id();
+            zera_validator::AllowanceState state;
+
+            auto wallet = wallets::generate_wallet(allowance.base().public_key());
+            std::string key = wallet + allowance.wallet_address() + contract_id;
+
+            if (!allowance.authorize())
+            {
+                allowance_batch.Delete(key);
+                allowance_batch.Delete("PRE_" + key);
+                continue;
+            }
+
+            state.mutable_public_key()->CopyFrom(allowance.base().public_key());
+
+            if (allowance.has_allowed_currency_equivelent())
+            {
+                state.set_allowed_currency_equivelent(allowance.allowed_currency_equivelent());
+            }
+            else if (allowance.has_allowed_amount())
+            {
+                state.set_allowed_amount(allowance.allowed_amount());
+            }
+
+            if (allowance.has_period_months())
+            {
+                state.set_period_months(allowance.period_months());
+            }
+            else if (allowance.has_period_seconds())
+            {
+                state.set_period_seconds(allowance.period_seconds());
+            }
+
+            state.mutable_start_time()->CopyFrom(allowance.start_time());
+            state.set_used_amount("0");
+
+            if (state.start_time().seconds() == 0)
+            {
+                state.mutable_start_time()->set_seconds(block_time);
+            }
+
+            uint64_t period_end = state.start_time().seconds();
+            if (state.has_period_seconds() && state.period_seconds() > 0)
+            {
+                if (period_end < block_time)
+                {
+                    // Calculate the number of periods needed to reach or exceed block_time
+                    uint64_t periods = (block_time - period_end + state.period_seconds() - 1) / state.period_seconds();
+                    period_end += periods * state.period_seconds();
+                }
+            }
+            else if (state.has_period_seconds() && state.period_seconds() == 0)
+            {
+                period_end = 0;
+            }
+            else if (state.has_period_months())
+            {
+                // Convert period_end (seconds since epoch) to a tm structure
+                std::time_t period_end_time_t = static_cast<std::time_t>(period_end);
+                std::tm period_end_tm = *std::gmtime(&period_end_time_t);
+
+                // Calculate the number of months to add
+                int months_to_add = state.period_months();
+                while (std::mktime(&period_end_tm) < static_cast<std::time_t>(block_time))
+                {
+                    period_end_tm.tm_mon += months_to_add;
+
+                    // Normalize the time structure
+                    period_end = static_cast<uint64_t>(std::mktime(&period_end_tm));
+                }
+            }
+
+            state.mutable_period_end()->set_seconds(period_end);
+            allowance_batch.Delete("PRE_" + key);
+            allowance_batch.Put(key, state.SerializeAsString());
+        }
+    }
+    db_allowance::store_batch(allowance_batch);
+}
 
 void txn_batch::batch_required_version(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
@@ -11,10 +103,13 @@ void txn_batch::batch_required_version(const zera_txn::TXNS &txns, const std::ma
 
         if (txn_passed.at(required_version.base().hash()))
         {
+            ValidatorConfig::set_required_version(required_version.version(0));
             db_system::store_single(REQUIRED_VERSION, required_version.SerializeAsString());
 
-            if(required_version.version(0) == 101000)
+            if (required_version.version(0) == 101000)
             {
+                db_system::store_single(TREASURY_KEY, "4Yg2ZeYrzMjVBXvU2YWtuZ7CzWR9atnQCD35TQj1kKcH");
+                logging::print("VERSION 101000 UPGRADE!");
                 ValidatorConfig::set_version(101000);
                 ValidatorConfig::set_treasury_wallet("4Yg2ZeYrzMjVBXvU2YWtuZ7CzWR9atnQCD35TQj1kKcH");
             }
@@ -87,7 +182,7 @@ void txn_batch::batch_foundation(const zera_txn::TXNS &txns, const std::map<std:
 void txn_batch::batch_revoke(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
 
-    leveldb::WriteBatch revoke_batch;
+    rocksdb::WriteBatch revoke_batch;
 
     for (auto revoke : txns.revoke_txns())
     {
@@ -101,7 +196,7 @@ void txn_batch::batch_revoke(const zera_txn::TXNS &txns, const std::map<std::str
 }
 void txn_batch::batch_compliance(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
-    leveldb::WriteBatch compliance_batch;
+    rocksdb::WriteBatch compliance_batch;
     for (auto compliance : txns.compliance_txns())
     {
         if (txn_passed.at(compliance.base().hash()))

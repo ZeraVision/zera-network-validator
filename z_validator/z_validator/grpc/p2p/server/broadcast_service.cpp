@@ -8,7 +8,7 @@
 #include <google/protobuf/timestamp.pb.h>
 #include <google/protobuf/empty.pb.h>
 #include <grpcpp/grpcpp.h>
-#include <leveldb/db.h>
+#include <rocksdb/db.h>
 
 // Project-specific headers
 #include "validator_network_service_grpc.h"
@@ -71,10 +71,8 @@ grpc::Status ValidatorServiceImpl::Broadcast(grpc::ServerContext *context, const
 	Block *txn = new Block();
 	txn->CopyFrom(*request);
 
-	ValidatorThreadPool &pool = ValidatorThreadPool::getInstance();
-
 	// Enqueue the task into the thread pool
-	pool.enqueueTask([txn](){ 
+	ValidatorThreadPool::enqueueTask([txn](){ 
 		ValidatorServiceImpl::ProcessBroadcastAsync(txn); 
 		delete txn;
 		});
@@ -101,10 +99,8 @@ grpc::Status ValidatorServiceImpl::StreamBroadcast(grpc::ServerContext *context,
 		return grpc::Status::CANCELLED;
 	}
 
-	ValidatorThreadPool &pool = ValidatorThreadPool::getInstance();
-
 	// Enqueue the task into the thread pool
-	pool.enqueueTask([txn](){ 
+	ValidatorThreadPool::enqueueTask([txn](){ 
 		ValidatorServiceImpl::ProcessBroadcastAsync(txn);
 		delete txn;
 		});
@@ -118,27 +114,22 @@ void ValidatorServiceImpl::ProcessBroadcastAsync(const Block *request)
 	block->CopyFrom(*request);
 	logging::print("ProcessBroadcastAsync");
 
-	leveldb::WriteBatch wallet_batch;
+	rocksdb::WriteBatch wallet_batch;
 	ZeraStatus status = vp_broadcast::verify_broadcast_block(block);
 	if (!status.ok())
 	{
 		status.prepend_message("broadcast_grpc.cpp: ProcessBroadcastAsync");
-		logging::print(status.read_status());
 		delete block;
 		return;
 	}
 
-	std::string pub_str = wallets::get_public_key_string(block->block_header().public_key());
-	logging::print("Processed Block:", std::to_string(block->block_header().block_height()), "From:", base58_encode_public_key(pub_str), false);
 
 	signatures::sign_block_broadcast(block, ValidatorConfig::get_gen_key_pair());
 
 	Block* block_copy = new Block();
 	block_copy->CopyFrom(*block);
 	
-	ValidatorThreadPool &pool = ValidatorThreadPool::getInstance();
-
-	pool.enqueueTask([block_copy](){ 
+	ValidatorThreadPool::enqueueTask([block_copy](){ 
         ValidatorNetworkClient::StartGossip(block_copy);
         delete block_copy; 
     });

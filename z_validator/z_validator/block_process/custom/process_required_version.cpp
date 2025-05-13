@@ -8,6 +8,7 @@
 #include "proposer.h"
 #include "base58.h"
 #include "utils.h"
+#include "../../logging/logging.h"
 
 template <>
 ZeraStatus block_process::process_txn<zera_txn::RequiredVersion>(const zera_txn::RequiredVersion *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn)
@@ -35,6 +36,10 @@ ZeraStatus block_process::process_txn<zera_txn::RequiredVersion>(const zera_txn:
     if(txn->version_size() <= 0)
     {
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_required_version.cpp: check_parameters: Version is required.", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
+    }
+    else
+    {
+        logging::print("process_required_version.cpp: process_txn: RequiredVersion", std::to_string(txn->version(0)), true);
     }
 
     status_fees.set_status(zera_txn::TXN_STATUS::OK);

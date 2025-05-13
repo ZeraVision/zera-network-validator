@@ -78,7 +78,7 @@ void Reorg::backup_blockchain(const std::string &block_height)
     db_validator_unbond::backup_database(block_height);
     db_proposal_ledger::backup_database(block_height);
     db_proposals::backup_database(block_height);
-    db_votes::backup_database(block_height);
+    db_status_fee::backup_database(block_height);
     db_process_ledger::backup_database(block_height);
     db_process_adaptive_ledger::backup_database(block_height);
     db_currency_equiv::backup_database(block_height);
@@ -111,6 +111,9 @@ void Reorg::backup_blockchain(const std::string &block_height)
     db_validator_archive::backup_database(block_height);
     db_quash_ledger_lookup::backup_database(block_height);
     db_system::backup_database(block_height);
+    db_gossip::backup_database(block_height);
+    db_sc_temp::backup_database(block_height);
+    db_allowance::backup_database(block_height);
 }
 
 void Reorg::restore_database(const std::string &block_height)
@@ -132,7 +135,7 @@ void Reorg::restore_database(const std::string &block_height)
     db_validator_unbond::restore_database(block_height);
     db_proposal_ledger::restore_database(block_height);
     db_proposals::restore_database(block_height);
-    db_votes::restore_database(block_height);
+    db_status_fee::restore_database(block_height);
     db_process_ledger::restore_database(block_height);
     db_process_adaptive_ledger::restore_database(block_height);
     db_currency_equiv::restore_database(block_height);
@@ -165,6 +168,33 @@ void Reorg::restore_database(const std::string &block_height)
     db_validator_archive::restore_database(block_height);
     db_quash_ledger_lookup::restore_database(block_height);
     db_system::restore_database(block_height);
+    db_gossip::restore_database(block_height);
+    db_sc_temp::restore_database(block_height);
+    db_allowance::restore_database(block_height);
+
+    db_preprocessed_nonce::remove_all();
+    db_processed_wallets::remove_all();
+    db_processed_txns::remove_all();
+    db_proposals_temp::remove_all();
+    db_fast_quorum::remove_all();
+    db_transactions::remove_all();
+    db_wallets_temp::remove_all();
+    db_gossip::remove_all();
+    db_headers::remove_all();
+
+    std::vector<std::string> keys;
+    std::vector<std::string> values;
+    db_wallet_nonce::get_all_data(keys, values);
+
+    int x = 0;
+    rocksdb::WriteBatch batch;
+    while (x < keys.size())
+    {
+        batch.Put(keys.at(x), values.at(x));
+        x++;
+    }
+    db_preprocessed_nonce::store_batch(batch);
+    
 
     logging::print("Restore completed for block height:", block_height);
 }

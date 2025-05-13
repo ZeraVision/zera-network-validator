@@ -43,42 +43,57 @@ void proposing::set_txn_token_fees(std::string txn_hash, std::string contract_id
 void proposing::add_temp_wallet_balance(const std::vector<std::string> &txn_hash_vec, const std::string &fee_address)
 {
 
-    std::regex pattern("\\$[^$]*$");
-
     for (auto txn_hash : txn_hash_vec)
     {
-        std::map<std::string, uint256_t> txn_balance;
-        std::map<std::string, uint256_t> subtract_txn_balance;
-        balance_tracker::get_txn_balance(txn_hash, txn_balance, subtract_txn_balance);
-        for (auto balance : txn_balance)
+        zera_validator::BalanceTracker txn_balance_tracker;
+        zera_validator::BalanceTracker subtract_txn_balance_tracker;
+
+        balance_tracker::get_txn_balance(txn_hash, txn_balance_tracker, subtract_txn_balance_tracker);
+
+        for (auto balance : txn_balance_tracker.wallet_balances())
         {
-            std::smatch match;
+            // Find the position of the last '$' in the string
+            std::size_t pos = balance.first.find_last_of('$');
 
-            // Find the last $ and everything after it
-            std::regex_search(balance.first, match, pattern);
-            std::string contract_id = match.str();
-            // Remove the last $ and everything after it
-            std::string wallet_address = std::regex_replace(balance.first, pattern, "");
+            // Extract the contract ID (everything after the last '$')
+            std::string contract_id = balance.first.substr(pos); // Includes the '$'
 
-            std::string fee_wallet = wallet_address;
-            if (wallet_address == PREPROCESS_PLACEHOLDER)
+            // Extract the wallet address (everything before the last '$')
+            std::string wallet_address = balance.first.substr(0, pos);
+
+            auto wallet_vec = base58_decode(wallet_address);
+            std::string key(wallet_vec.begin(), wallet_vec.end());
+
+            std::string fee_wallet = key;
+
+            if (fee_wallet == PREPROCESS_PLACEHOLDER)
             {
                 fee_wallet = fee_address;
             }
 
-            balance_tracker::add_balance(fee_wallet, contract_id, balance.second);
+            uint256_t balance_value(balance.second);
+            balance_tracker::add_balance(fee_wallet, contract_id, balance_value);
         }
 
-        for (auto subtract : subtract_txn_balance)
+        for (auto subtract : subtract_txn_balance_tracker.wallet_balances())
         {
-            std::smatch match;
 
-            // Find the last $ and everything after it
-            std::regex_search(subtract.first, match, pattern);
-            std::string contract_id = match.str();
-            // Remove the last $ and everything after it
-            std::string wallet_address = std::regex_replace(subtract.first, pattern, "");
-            balance_tracker::remove_balance(wallet_address, contract_id, subtract.second);
+            // Find the position of the last '$' in the string
+            std::size_t pos = subtract.first.find_last_of('$');
+
+            // Extract the contract ID (everything after the last '$')
+            std::string contract_id = subtract.first.substr(pos); // Includes the '$'
+
+            // Extract the wallet address (everything before the last '$')
+            std::string wallet_address = subtract.first.substr(0, pos);
+
+            auto wallet_vec = base58_decode(wallet_address);
+            std::string key(wallet_vec.begin(), wallet_vec.end());
+
+            // Convert the balance string to uint256_t
+            uint256_t subtract_value(subtract.second);
+
+            balance_tracker::remove_balance(key, contract_id, subtract_value);
         }
         balance_tracker::remove_txn_balance(txn_hash);
     }
@@ -157,12 +172,12 @@ void proposing::set_token_fees(std::string contract_id, std::string address, boo
     }
 }
 
-ZeraStatus proposing::make_block(zera_validator::Block *block, const transactions &txns)
+ZeraStatus proposing::make_block(zera_validator::Block *block, const transactions &txns, const Stopwatch &stopwatch)
 {
 
     // add prepocessed txns to block
     // this function will remove the txns from the processed database
-    bool added_txn = add_processed(txns.processed_keys, txns.processed_values, block);
+    bool added_txn = add_processed(txns.processed_keys, txns.processed_values, block, stopwatch);
 
     if (txns.timed_keys.size() > 0)
     {
@@ -234,12 +249,12 @@ ZeraStatus proposing::make_block(zera_validator::Block *block, const transaction
     gov_process::process_fast_quorum(block_txns);
 
     quash_tracker::quash_result(block_txns);
-
     std::vector<std::string> txn_hash_vec;
-    txn_hash_tracker::get_hash(txn_hash_vec);
-
+    std::vector<std::string> allowance_txn_hash_vec;
+    txn_hash_tracker::get_hash(txn_hash_vec, allowance_txn_hash_vec);
     set_all_token_fees(block, txn_hash_vec, ValidatorConfig::get_fee_address_string());
     add_temp_wallet_balance(txn_hash_vec, ValidatorConfig::get_fee_address_string());
+    allowance_tracker::add_block_allowance(allowance_txn_hash_vec);
 
     merkle_tree::build_merkle_tree(block);
 
@@ -247,9 +262,8 @@ ZeraStatus proposing::make_block(zera_validator::Block *block, const transaction
     std::string block_write;
     std::string header_write;
     std::string key1 = block_utils::block_to_write(block, block_write, header_write);
-    std::string block_data;
 
-    if (db_blocks::get_single(key1, block_data))
+    if (db_blocks::exist(key1))
     {
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "proposer.h: make_block: Block already exists.");
     }
@@ -267,7 +281,7 @@ ZeraStatus proposing::make_block_sync(zera_validator::Block *block, const transa
 
     // add prepocessed txns to block
     // this function will remove the txns from the processed database
-    bool added_txn = add_processed(txns.processed_keys, txns.processed_values, block);
+    bool added_txn = add_processed_sync(txns.processed_keys, txns.processed_values, block);
 
     if (txns.timed_keys.size() > 0)
     {
@@ -277,7 +291,6 @@ ZeraStatus proposing::make_block_sync(zera_validator::Block *block, const transa
             added_txn = true;
         }
     }
-
     // process txns
     if (txns.keys.size() > 0)
     {

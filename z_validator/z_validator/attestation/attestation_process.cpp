@@ -47,10 +47,9 @@ void AttestationProcess::CreateAttestation(zera_validator::Block *block)
 
     signatures::sign_request(attestation, ValidatorConfig::get_gen_key_pair());
 
-    ThreadPool &pool = ThreadPool::getInstance();
-
     archive_attestation(attestation);
-    pool.enqueueTask([attestation](){ 
+    
+    ValidatorThreadPool::enqueueTask([attestation](){ 
         ValidatorNetworkClient::StartGossip(attestation);
         delete attestation;
         });

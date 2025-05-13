@@ -53,7 +53,7 @@ namespace
         uint256_t sender_balance;
         std::string sender_key = wallet_adr + fee_symbol;
 
-        ZeraStatus status = balance_tracker::subtract_txn_balance(sender_key, fee_amount, txn_hash);
+        ZeraStatus status = balance_tracker::subtract_txn_balance(wallet_adr, fee_symbol, fee_amount, txn_hash);
 
         if (!status.ok())
         {
@@ -82,20 +82,20 @@ namespace
         {
             validator_fee = (validator_percent * fee_amount) / 100;
             std::string validator_adr = ValidatorConfig::get_fee_address_string();
-            balance_tracker::add_txn_balance(validator_adr+fee_symbol, validator_fee, txn_hash);
+            balance_tracker::add_txn_balance(validator_adr, fee_symbol, validator_fee, txn_hash);
             proposing::set_txn_token_fees(txn_hash, fee_symbol, validator_adr, validator_fee);
         }
         if (foundation_percent > zero_256)
         {
             foundation_fee = (foundation_percent * fee_amount) / 100;
-            balance_tracker::add_txn_balance(foundation_wallet+fee_symbol, foundation_fee, txn_hash);
+            balance_tracker::add_txn_balance(foundation_wallet, fee_symbol, foundation_fee, txn_hash);
             proposing::set_txn_token_fees(txn_hash, fee_symbol, foundation_wallet, foundation_fee);
         }
 
         if (contract_percent > zero_256)
         {
             contract_fee = fee_amount - validator_fee - burn_fee;
-            balance_tracker::add_txn_balance(nft.contract_fees().fee_address()+fee_symbol, contract_fee, txn_hash);
+            balance_tracker::add_txn_balance(nft.contract_fees().fee_address(), fee_symbol, contract_fee, txn_hash);
             proposing::set_txn_token_fees(txn_hash, fee_symbol, nft.contract_fees().fee_address(), contract_fee);
         }
 

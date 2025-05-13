@@ -3,43 +3,8 @@
 #include "const.h"
 #include <exception>
 #include "../../../logging/logging.h"
-namespace
-{
-    void get_channels(std::vector<std::shared_ptr<grpc::Channel>> &channels)
-    {
-        std::vector<zera_txn::Validator> validators = get_random_validators();
-        int x = 0;
-        for (const auto validator : validators)
-        {
-            std::string pub_key = wallets::get_public_key_string(validator.public_key());
-            if (pub_key != ValidatorConfig::get_public_key() && validator.online() && x < 10)
-            {
-                std::string host = validator.host() + ":" + validator.validator_port();
-                std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(host, grpc::InsecureChannelCredentials());
-                channels.push_back(channel);
-                x++;
-            }
 
-            if(x >= 9)
-            {
-                break;
-            }
-        }
 
-        // send broadcast to explorer servers
-        std::ifstream file(EXPLORER_CONFIG); // Open the file
-        if (file.is_open())
-        {
-            std::string line;
-            while (std::getline(file, line))
-            {
-                std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(line, grpc::InsecureChannelCredentials());
-                channels.push_back(channel);
-            }
-            file.close(); // Close the file
-        }
-    }
-}
 void ValidatorNetworkClient::SendStreamBlock(const zera_validator::Block *request)
 {
     int call_num = 1;
@@ -50,6 +15,10 @@ void ValidatorNetworkClient::SendStreamBlock(const zera_validator::Block *reques
 
         std::vector<zera_validator::DataChunk> chunks;
         ValidatorServiceImpl::chunkData(request->SerializeAsString(), &chunks);
+
+        // Set a deadline of 5 seconds for the gRPC call
+        std::chrono::system_clock::time_point deadline = std::chrono::system_clock::now() + std::chrono::seconds(5);
+        context.set_deadline(deadline);
 
         auto writer = stubs_[x]->AsyncStreamBroadcast(&context, &response, &cq_, reinterpret_cast<void *>(call_num));
 
@@ -111,11 +80,16 @@ void ValidatorNetworkClient::StartRegisterSeeds(const ValidatorRegistration *req
 template <typename TXType>
 void ValidatorNetworkClient::StartGossip(const TXType *request)
 {
-
     TXType *copy = new TXType();
     copy->CopyFrom(*request);
     std::vector<std::shared_ptr<grpc::Channel>> channels;
-    get_channels(channels);
+    get_channels(channels, false);
+    if (channels.size() == 0)
+    {
+        delete copy;
+        return;
+    }
+
     ValidatorNetworkClient client(channels);
     client.AsyncValidatorSend(copy);
     client.delete_calls();
@@ -144,6 +118,7 @@ template void ValidatorNetworkClient::StartGossip<zera_txn::ComplianceTXN>(const
 template void ValidatorNetworkClient::StartGossip<zera_txn::BurnSBTTXN>(const zera_txn::BurnSBTTXN *request);
 template void ValidatorNetworkClient::StartGossip<zera_txn::CoinTXN>(const zera_txn::CoinTXN *request);
 template void ValidatorNetworkClient::StartGossip<zera_txn::SmartContractInstantiateTXN>(const zera_txn::SmartContractInstantiateTXN *request);
+template void ValidatorNetworkClient::StartGossip<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *request);
 
 template <>
 void ValidatorNetworkClient::StartGossip<zera_validator::Block>(const zera_validator::Block *request)
@@ -156,6 +131,13 @@ void ValidatorNetworkClient::StartGossip<zera_validator::Block>(const zera_valid
     get_channels(channels);
 
     ValidatorNetworkClient client(channels);
+
+    if (channels.size() == 0)
+    {
+        delete block;
+        return;
+    }
+
     if (request->ByteSize() > static_cast<int>(CHUNK_SIZE))
     {
         client.SendStreamBlock(block);
@@ -175,7 +157,7 @@ void ValidatorNetworkClient::StartGossip<zera_validator::BlockAttestation>(const
     copy->CopyFrom(*request);
     std::vector<std::shared_ptr<grpc::Channel>> channels;
 
-    get_channels(channels);
+    get_channels(channels, false);
 
     ValidatorNetworkClient client(channels);
     client.SendAttestation(copy);
@@ -356,10 +338,24 @@ void ValidatorNetworkClient::GRPCSend<zera_txn::CoinTXN>(const zera_txn::CoinTXN
         stubs_[call_num]->AsyncValidatorCoin(context, *request, &cq_));
     rpc->Finish(response, status, reinterpret_cast<void *>(static_cast<size_t>(call_num)));
 }
-template<> 
+template <>
 void ValidatorNetworkClient::GRPCSend<zera_txn::SmartContractInstantiateTXN>(const zera_txn::SmartContractInstantiateTXN *request, const int call_num, grpc::ClientContext *context, grpc::Status *status, Empty *response)
 {
     std::unique_ptr<grpc::ClientAsyncResponseReader<Empty>> rpc(
         stubs_[call_num]->AsyncValidatorSmartContractInstantiate(context, *request, &cq_));
+    rpc->Finish(response, status, reinterpret_cast<void *>(static_cast<size_t>(call_num)));
+}
+template <>
+void ValidatorNetworkClient::GRPCSend<zera_validator::TXNGossip>(const zera_validator::TXNGossip *request, const int call_num, grpc::ClientContext *context, grpc::Status *status, Empty *response)
+{
+    std::unique_ptr<grpc::ClientAsyncResponseReader<Empty>> rpc(
+        stubs_[call_num]->AsyncGossip(context, *request, &cq_));
+    rpc->Finish(response, status, reinterpret_cast<void *>(static_cast<size_t>(call_num)));
+}
+template <>
+void ValidatorNetworkClient::GRPCSend<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *request, const int call_num, grpc::ClientContext *context, grpc::Status *status, Empty *response)
+{
+    std::unique_ptr<grpc::ClientAsyncResponseReader<Empty>> rpc(
+        stubs_[call_num]->AsyncValidatorAllowance(context, *request, &cq_));
     rpc->Finish(response, status, reinterpret_cast<void *>(static_cast<size_t>(call_num)));
 }

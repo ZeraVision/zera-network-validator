@@ -5,10 +5,13 @@ void proposing::add_transaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *b
 {
     if (wrapper.has_coin_txn())
     {
+        txn_hash_tracker::add_allowance_hash(wrapper.coin_txn().base().hash());
         txn_hash_tracker::add_hash(wrapper.coin_txn().base().hash());
         get_fees_status(wrapper.coin_txn(), block_txns);
         block_txns->add_coin_txns()->CopyFrom(wrapper.coin_txn());
-        add_used_new_coin_nonce(wrapper.coin_txn());
+        auto size = block_txns->txn_fees_and_status_size() - 1;
+        
+        add_used_new_coin_nonce(wrapper.coin_txn(), block_txns->txn_fees_and_status(size));
     }
     else if (wrapper.has_contract_txn())
     {
@@ -168,11 +171,21 @@ void proposing::add_transaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *b
         block_txns->add_smart_contract_instantiate_txns()->CopyFrom(wrapper.smart_contract_instantiate_txn());
         add_used_nonce(wrapper.smart_contract_instantiate_txn());
     }
+    else if(wrapper.has_allowance_txn())
+    {
+        txn_hash_tracker::add_hash(wrapper.allowance_txn().base().hash());
+        get_fees_status(wrapper.allowance_txn(), block_txns);
+        block_txns->add_allowance_txns()->CopyFrom(wrapper.allowance_txn());
+        add_used_nonce(wrapper.allowance_txn());
+    }
 }
-bool proposing::add_processed(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block)
+
+bool proposing::add_processed_sync(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block)
 {
+    std::vector<std::string> added_txns;
     zera_txn::TXNS *block_txns = block->mutable_transactions();
     bool txn_added = false;
+    int x = 0;
     for (auto txn_str : values)
     {
         zera_txn::TXNWrapper wrapper;
@@ -182,10 +195,52 @@ bool proposing::add_processed(const std::vector<std::string> &keys, const std::v
             add_transaction(wrapper, block_txns);
             txn_added = true;
         }
+        
+        added_txns.push_back(keys[x]);
     }
 
-    leveldb::WriteBatch remove_txns;
-    for (auto key : keys)
+    rocksdb::WriteBatch remove_txns;
+
+    for (auto key : added_txns)
+    {
+        remove_txns.Delete(key);
+    }
+
+    db_processed_txns::store_batch(remove_txns);
+
+    return txn_added;
+}
+
+bool proposing::add_processed(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block, const Stopwatch& stopwatch)
+{
+    std::vector<std::string> added_txns;
+    zera_txn::TXNS *block_txns = block->mutable_transactions();
+    bool txn_added = false;
+    int x = 0;
+
+    for (auto txn_str : values)
+    {
+        zera_txn::TXNWrapper wrapper;
+
+        if (wrapper.ParseFromString(txn_str))
+        {
+            add_transaction(wrapper, block_txns);
+            txn_added = true;
+        }
+        
+        added_txns.push_back(keys[x]);
+
+        if(stopwatch.elapsed_seconds() > 4)
+        {
+            break;
+        }
+        x++;
+    }
+
+    rocksdb::WriteBatch remove_txns;
+
+    logging::print("txns added to block:", std::to_string(added_txns.size()), true);
+    for (auto key : added_txns)
     {
         remove_txns.Delete(key);
     }

@@ -24,6 +24,7 @@ struct SenderDataType
   std::string current_smart_contract_instance;    // Current smart contract instance (Changes every Call/DelegateCall)
   std::string fee_smart_contract_instance;        // Fee smart contract instance (Never changes)
   std::string fee_smart_contract_wallet;          // Fee smart contract wallet (Never changes)
+  std::vector<std::string> txn_hashes;            // Transaction hashes made by the smart contract (is not effected by Call/DelegateCall)
 
   uint64_t gas_used;                              // Used gas for all calls (increases after every Call/DelegateCall)
   uint64_t gas_available;                         // Available gas for next call (reduces after ever Call/DelegateCall)

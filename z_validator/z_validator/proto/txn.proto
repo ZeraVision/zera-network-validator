@@ -19,7 +19,7 @@ service TXNService{
     rpc SmartContractInstantiate(SmartContractInstantiateTXN) returns (google.protobuf.Empty);
     rpc CurrencyEquiv(SelfCurrencyEquiv) returns (google.protobuf.Empty);
     rpc AuthCurrencyEquiv(AuthorizedCurrencyEquiv) returns (google.protobuf.Empty);
-    rpc ExpenseRatio(ExpenseRatioTXN) returns (google.protobuf.Empty); //TODO - change to stream
+    rpc ExpenseRatio(ExpenseRatioTXN) returns (google.protobuf.Empty);
     rpc NFT(NFTTXN) returns (google.protobuf.Empty);
     rpc ContractUpdate(ContractUpdateTXN) returns (google.protobuf.Empty); 
     rpc Foundation(FoundationTXN) returns (google.protobuf.Empty);
@@ -29,7 +29,7 @@ service TXNService{
     rpc Revoke(RevokeTXN) returns (google.protobuf.Empty);
     rpc Compliance(ComplianceTXN) returns (google.protobuf.Empty);
     rpc BurnSBT(BurnSBTTXN) returns (google.protobuf.Empty);
-
+    rpc Allowance(AllowanceTXN) returns (google.protobuf.Empty);
 }
 
 enum TXN_STATUS{
@@ -74,6 +74,7 @@ enum TXN_STATUS{
     INVALID_SMART_CONTRACT = 38;
     FAULTY_TXN = 39;
     OUT_OF_GAS = 40;
+    INVALID_ALLOWANCE = 41;
 }
 enum TRANSACTION_TYPE
 {
@@ -103,6 +104,7 @@ enum TRANSACTION_TYPE
     REQUIRED_VERSION = 23;
     SMART_CONTRACT_INSTANTIATE_TYPE = 24;
     UKNOWN_TYPE = 25;
+    ALLOWANCE_TYPE = 26;        //CHANGE - Allowance transaction type
 }
 //ENUMS
 enum LANGUAGE{
@@ -128,7 +130,8 @@ enum VARIABLE_TYPE{
 enum CONTRACT_FEE_TYPE{
     FIXED = 0;
     CUR_EQUIVALENT = 1;
-    PERCENTAGE= 2;
+    PERCENTAGE = 2;
+    NONE = 3; //CHANGE - No fees for this contract
 }
 enum GOVERNANCE_TYPE{
     STAGED = 0;    //Multiple stages of governance, must pass regular quorum to get to next stage. Up to 99 stages specified by contract creator (in days)
@@ -170,7 +173,7 @@ message TokenCompliance{
 message ExpenseRatio{
     uint32 day = 1;
     uint32 month = 2;
-    uint32 percent = 3; //100 = 100%??
+    uint32 percent = 3; //100,000 = 100%
 }
 message KeyValuePair{
     string key = 1;
@@ -209,6 +212,7 @@ message Governance{
     optional PROPOSAL_PERIOD proposal_period = 10;  //Is the total_period in months or days? months will start the cycle on the start_date, days will start after period ends (must be present with cycle & staggered & staged) | (cannot be present with adaptive) 
     repeated Stage stage_length = 11;              //Determines how many stages in cycle, cannot be more than 28 per month and 99 in total. '0' input will represent remainder of month (can only be used as last entry)
     optional google.protobuf.Timestamp start_timestamp = 12; //Start date of the contract, year-month-day-hour parsed. Needs to be present for staged and cycle
+    optional uint32 max_approved = 13;                  //only allowed in CYCLE governance type, this is the max number of proposals that can be approved in a cycle (if 0, all proposals will be approved)
 }
 message Stage{
     uint32 length = 1;
@@ -221,7 +225,7 @@ message CoinDenomination{
     string amount = 6;
 }
 message ContractFees{
-    string fee = 1;                 //100% && $1.00 = 1000000000000000000 (quintillion)
+    string fee = 1;                 //100% && $1.00 = 1,000,000,000,000,000,000 (quintillion)
     optional bytes fee_address = 2; //address of contract holder (or the wallet they want fees to go to)
     string burn = 3;                //percent = 100% = 1000000000000000000 (quintillion)
     string validator = 4;           //percent = 100% = 1000000000000000000 (quintillion)
@@ -305,8 +309,8 @@ message MultiKey{
     repeated string hash_tokens = 4;            //hash tokens to hash the multi key in wallet address
 }
 message MultiPatterns{
-    repeated int32 class = 1;                   //these are a parrellel array of classes and how many of these classes are required to create a valid multi key
-    repeated int32 required = 2;
+    repeated uint32 class = 1;                   //these are a parrellel array of classes and how many of these classes are required to create a valid multi key
+    repeated uint32 required = 2;
 }
 message SelfCurrencyEquiv{
     BaseTXN base = 1;
@@ -369,6 +373,8 @@ message TransferAuthentication
     repeated PublicKey public_key = 1;
     repeated bytes signature = 2;
     repeated uint64 nonce = 3;
+    repeated bytes allowance_address = 4;
+    repeated uint64 allowance_nonce = 5;
 }
 message InputTransfers
 {
@@ -418,10 +424,10 @@ message ContractUpdateTXN{
     optional ContractFees contract_fees = 7;
     repeated KeyValuePair custom_parameters = 8; 
     repeated ExpenseRatio expense_ratio = 9;
-    repeated TokenCompliance token_compliance = 10; //CHANGE - Compliance levels for kyc compliance
-    optional bool kyc_status = 11;            //CHANGE - if true, this contract will require kyc to transact
-    optional bool immutable_kyc_status = 12;  //CHANGE - if kyc_status is true, this will make it immutable
-    optional uint32 quash_threshold = 13;     //CHANGE - total number of quash txns to quash a time delay txn
+    repeated TokenCompliance token_compliance = 10; //Compliance levels for kyc compliance
+    optional bool kyc_status = 11;            //if true, this contract will require kyc to transact
+    optional bool immutable_kyc_status = 12;  //if kyc_status is true, this will make it immutable
+    optional uint32 quash_threshold = 13;     
 }
 message InstrumentContract{
     BaseTXN base = 1; 
@@ -473,7 +479,6 @@ message GovernanceTXN{
     TRANSACTION_TYPE txn_type = 1;
     bytes serialized_txn = 2;
     bytes txn_hash = 3;
-
 }
 message SmartContractTXN{
     BaseTXN base = 1;
@@ -560,6 +565,17 @@ message ProposalResult{
     bool fast_quorum = 13;
     optional bool proposal_cut = 14;      //CHANGE - if staged and proposal is accepted to next stage (top x yes votes / and passing)
 }
+message AllowanceTXN{
+    BaseTXN base = 1;
+    string contract_id = 2;                          //contract id of the token to allow
+    bytes wallet_address = 3;                        //address of the wallet to allow
+    optional string allowed_currency_equivelent = 4; //1000000000000000000 = $1.00 can only have either this or allowed_amount
+    optional string allowed_amount = 5;              //Amount of parts of token can only have either this or allowed_currency_equivelent
+    optional uint32 period_months = 6;               //How many months until this allowance resets, can only have this or period_seconds
+    optional uint32 period_seconds = 7;              //How many seconds until this allowance resets, can only have this or period_months
+    google.protobuf.Timestamp start_time = 9;        //Start time of the allowance.
+    bool authorize = 10;                             //true to authorize, false to de-authorize
+}
 message TXNS{
     repeated CoinTXN coin_txns = 1;
     repeated MintTXN mint_txns = 2;
@@ -590,6 +606,7 @@ message TXNS{
     repeated BurnSBTTXN burn_sbt_txns = 27;
     repeated SmartContractInstantiateTXN smart_contract_instantiate_txns = 28;
     optional RequiredVersion required_version_txn = 29;
+    repeated AllowanceTXN allowance_txns = 30;
 }
 
 message Token{
@@ -646,6 +663,7 @@ message TXNWrapper{
         BurnSBTTXN burn_sbt_txn = 23;
         RequiredVersion required_version_txn = 24;
         SmartContractInstantiateTXN smart_contract_instantiate_txn = 25;
+        AllowanceTXN allowance_txn = 30;
     }
     
     TRANSACTION_TYPE txn_type = 26;

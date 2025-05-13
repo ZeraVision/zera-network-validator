@@ -19,7 +19,7 @@ void sbt_burn_tracker::clear_burns(){
     }   
 
     std::lock_guard<std::mutex> lock(mtx);
-    leveldb::WriteBatch burn_batch;
+    rocksdb::WriteBatch burn_batch;
     for(auto burn : sbt_list)
     {
         burn_batch.Delete(burn);

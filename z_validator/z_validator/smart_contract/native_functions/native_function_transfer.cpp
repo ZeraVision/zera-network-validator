@@ -154,7 +154,7 @@ namespace
         txn->mutable_base()->set_fee_amount(txn_fee_amount.str());
     }
 
-    void set_base(zera_txn::BaseTXN *base, const SenderDataType &sender)
+    void set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
         std::string sc_auth = "sc_" + sender.smart_contract_instance;
         base->mutable_public_key()->set_smart_contract_auth(sc_auth);
@@ -164,7 +164,7 @@ namespace
         base->set_safe_send(false);
     }
 
-    void set_auth(zera_txn::TransferAuthentication *auth, const SenderDataType &sender)
+    void set_auth(zera_txn::TransferAuthentication *auth, SenderDataType &sender)
     {
         std::string wallet_address = sender.wallet_address;
         uint64_t nonce = 0;
@@ -188,7 +188,7 @@ namespace
         output->set_wallet_address(wallet);
     }
 
-    std::string process_txn(const SenderDataType &sender, const zera_txn::CoinTXN &txn)
+    std::string process_txn(SenderDataType &sender, const zera_txn::CoinTXN &txn)
     {
         std::string value;
         db_smart_contracts::get_single(sender.block_txns_key, value);
@@ -201,6 +201,7 @@ namespace
 
         if (status.ok())
         {
+            sender.txn_hashes.push_back(txn.base().hash());
             block_txns.add_coin_txns()->CopyFrom(txn);
             txn_hash_tracker::add_hash(txn.base().hash());
             uint64_t nonce = txn.base().nonce();
@@ -212,7 +213,7 @@ namespace
         return zera_txn::TXN_STATUS_Name(status.txn_status());
     }
 
-    std::string create_transfer(const SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet)
+    std::string create_transfer(SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet)
     {
         zera_txn::CoinTXN txn;
 
@@ -239,7 +240,7 @@ namespace
         return process_txn(sender, txn);
     }
 
-    std::string create_transfer_v2(const SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet)
+    std::string create_transfer_v2(SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet)
     {
         zera_txn::CoinTXN txn;
 

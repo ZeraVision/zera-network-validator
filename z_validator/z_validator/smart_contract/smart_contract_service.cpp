@@ -61,7 +61,7 @@ namespace
     block_process::get_cur_equiv("$ZRA+0000", usd_equiv);
     storage_fee = (storage_fee * 1000000000) / usd_equiv;
 
-    ZeraStatus status = balance_tracker::subtract_txn_balance(sender.fee_smart_contract_wallet + "$ZRA+0000", storage_fee, sender.txn_hash);
+    ZeraStatus status = balance_tracker::subtract_txn_balance(sender.fee_smart_contract_wallet, "$ZRA+0000", storage_fee, sender.txn_hash);
 
     if (!status.ok())
     {
@@ -1244,6 +1244,30 @@ WasmEdge_ModuleInstanceContext *CreateExternModule()
                      ReturnList_Emit, sizeof(ReturnList_Emit) / sizeof(ReturnList_Emit[0]),
                      Emit, "emit");
 
+  // add "emit" function
+  enum WasmEdge_ValType ParamList_Compliance[4] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_Compliance[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_Compliance, sizeof(ParamList_Compliance) / sizeof(ParamList_Compliance[0]),
+                     ReturnList_Compliance, sizeof(ReturnList_Compliance) / sizeof(ReturnList_Compliance[0]),
+                     Compliance, "compliance");
+
+  // add "emit" function
+  enum WasmEdge_ValType ParamList_Vote[4] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_Vote[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_Vote, sizeof(ParamList_Vote) / sizeof(ParamList_Vote[0]),
+                     ReturnList_Vote, sizeof(ReturnList_Vote) / sizeof(ReturnList_Vote[0]),
+                     Vote, "vote");
+                     
+  // add "emit" function
+  enum WasmEdge_ValType ParamList_ExpenseRatio[4] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_ExpenseRatio[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_ExpenseRatio, sizeof(ParamList_ExpenseRatio) / sizeof(ParamList_ExpenseRatio[0]),
+                     ReturnList_ExpenseRatio, sizeof(ReturnList_ExpenseRatio) / sizeof(ReturnList_ExpenseRatio[0]),
+                     ExpenseRatio, "expense_ratio");
+
   return HostModCxt;
 }
 
@@ -1338,6 +1362,7 @@ std::vector<std::any> smart_contract_service::runCall(std::string smart_contract
     stats_size = sender.Stats.size() - 1;
     WasmEdge_StatisticsSetCostLimit(sender.Stats[stats_size], sender.gas_available);
     sender.gas_used += gas_used;
+    logging::print("[run] TotalCosts + sender.gas_available", std::to_string(sender.gas_available), true);
     logging::print("[run] TotalCost (GasCosts):", std::to_string(gas_used), true);
     logging::print("[run] TotalCosts + sender.gas_used:", std::to_string(sender.gas_used), true);
     throw std::runtime_error("Error: wasmInstantiateAndExecute");
@@ -1360,7 +1385,7 @@ std::vector<std::any> smart_contract_service::runCall(std::string smart_contract
   return results;
 }
 
-std::vector<std::any> smart_contract_service::run(std::string smart_contract_instance, const char *wasmFileLocation, std::string wasmFileContent, std::string func, std::vector<std::any> func_params, int preopenLen, const char *const *preopens, int argc, const char *const *argv, const uint64_t &limit, uint64_t &used_gas)
+std::vector<std::any> smart_contract_service::run(std::string smart_contract_instance, const char *wasmFileLocation, std::string wasmFileContent, std::string func, std::vector<std::any> func_params, int preopenLen, const char *const *preopens, int argc, const char *const *argv, const uint64_t &limit, uint64_t &used_gas, std::vector<std::string> &txn_hashes)
 {
   const char *function_name = func.c_str();
   logging::print("[run] function_name:", func);
@@ -1447,6 +1472,11 @@ std::vector<std::any> smart_contract_service::run(std::string smart_contract_ins
   }
   catch (...)
   {
+    for (auto hash : sender.txn_hashes)
+    {
+      txn_hashes.push_back(hash);
+    }
+
     uint64_t TotalCosts = WasmEdge_StatisticsGetTotalCost(StatCxt);
     used_gas = TotalCosts + sender.gas_used;
     logging::print("[run] TotalCost (GasCosts):", std::to_string(TotalCosts), true);
@@ -1469,7 +1499,7 @@ std::vector<std::any> smart_contract_service::run(std::string smart_contract_ins
   return results;
 }
 
-std::vector<std::any> smart_contract_service::runScriptingLang(std::string smart_contract_instance, const char *wasmFile, std::string binary_code, std::string wasm_function, std::vector<std::any> func_params, const uint64_t &limit, uint64_t &used_gas)
+std::vector<std::any> smart_contract_service::runScriptingLang(std::string smart_contract_instance, const char *wasmFile, std::string binary_code, std::string wasm_function, std::vector<std::any> func_params, const uint64_t &limit, uint64_t &used_gas, std::vector<std::string> &txn_hashes)
 {
   const char *Preopens[] = {
       ".:.",
@@ -1477,7 +1507,7 @@ std::vector<std::any> smart_contract_service::runScriptingLang(std::string smart
       "usr/local/lib/python3.11:usr/local/lib/python3.11"};
   const char *argv[] = {"", binary_code.c_str()};
 
-  return smart_contract_service::run(smart_contract_instance, wasmFile, binary_code, wasm_function, func_params, 2, Preopens, 2, argv, limit, used_gas);
+  return smart_contract_service::run(smart_contract_instance, wasmFile, binary_code, wasm_function, func_params, 2, Preopens, 2, argv, limit, used_gas, txn_hashes);
 }
 
 std::vector<std::any> smart_contract_service::runCallScriptingLang(std::string smart_contract_instance, const char *wasmFile, std::string binary_code, std::string wasm_function, std::vector<std::any> func_params)
@@ -1506,7 +1536,8 @@ std::vector<std::any> smart_contract_service::eval(
     const std::string fee_address,
     const std::string smart_contract_wallet,
     const uint64_t &gas_limit,
-    uint64_t &used_gas)
+    uint64_t &used_gas,
+    std::vector<std::string> &txn_hashes)
 {
   // store sender's data
   sender.pub_key = sender_pub_key;
@@ -1529,6 +1560,7 @@ std::vector<std::any> smart_contract_service::eval(
   sender.wallet_chain.push_back(smart_contract_wallet);
   sender.gas_available = gas_limit;
   sender.gas_used = 0;
+  sender.txn_hashes.clear();
 
   logging::print("[eval] sender:", base58_encode(smart_contract_wallet), true);
 
@@ -1539,12 +1571,12 @@ std::vector<std::any> smart_contract_service::eval(
   {
     const char *wasmFile = language == zera_txn::LANGUAGE::JAVASCRIPT ? "../smart_contract/wasmedge_quickjs.wasm" : "../smart_contract/python-3.11.3-wasmedge.wasm";
     // wasm_function will be _start
-    results = smart_contract_service::runScriptingLang(smart_contract_instance, wasmFile, binary_code, func, func_params, gas_limit, used_gas);
+    results = smart_contract_service::runScriptingLang(smart_contract_instance, wasmFile, binary_code, func, func_params, gas_limit, used_gas, txn_hashes);
   }
   else
   {
     // compiled langs
-    results = smart_contract_service::run(smart_contract_instance, NULL, binary_code, func, func_params, 0, NULL, 0, NULL, gas_limit, used_gas);
+    results = smart_contract_service::run(smart_contract_instance, NULL, binary_code, func, func_params, 0, NULL, 0, NULL, gas_limit, used_gas, txn_hashes);
   }
 
   logging::print("[eval] results:", std::to_string(results.size()));

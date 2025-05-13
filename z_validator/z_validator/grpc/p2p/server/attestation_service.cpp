@@ -60,12 +60,10 @@ namespace
 
         if (request.block_hash() == current_block_hash)
         {
-            logging::print("SET Support");
             response.set_support(true);
         }
         else
         {
-            logging::print("Set No Support");
             auto hash_vec = base58_decode(current_block_hash);
             std::string hash_str(hash_vec.begin(), hash_vec.end());
             std::string key;
@@ -78,7 +76,6 @@ namespace
 
             if (db_headers::get_single(key, header_data) && header.ParseFromString(header_data) && db_blocks::get_single(key, block_data) && block.ParseFromString(block_data))
             {
-                logging::print("SET Supported Block");
                 block.mutable_block_header()->CopyFrom(header);
                 response.mutable_supported_block()->CopyFrom(block);
             }
@@ -93,12 +90,10 @@ namespace
 
         if (current_attestation.confirmed())
         {
-            logging::print("SET Confirmed");
             response.set_confirmed(true);
         }
         else
         {
-            logging::print("SET Unconfirmed");
             response.set_confirmed(false);
         }
     }
@@ -282,10 +277,8 @@ grpc::Status ValidatorServiceImpl::StreamBlockAttestation(grpc::ServerContext *c
         stream->Write(chunk);
     }
 
-    ValidatorThreadPool &pool = ValidatorThreadPool::getInstance();
-
     // Enqueue the task into the thread pool
-    pool.enqueueTask([request, response](){ 
+    ValidatorThreadPool::enqueueTask([request, response](){ 
         ValidatorServiceImpl::ProcessBlockAttestationAsync(request, response);
         delete request;
         delete response;

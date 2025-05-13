@@ -12,7 +12,6 @@ int db_validators_tag::get_all_validators(std::vector<zera_txn::Validator> &vali
         logging::print("Reorg in progress. Database operation delayed. Get all validators.");
         return 0;
     }
-    std::lock_guard<std::mutex> lock(db_validators::db_mutex);
     std::vector<std::string> keys;
     std::vector<std::string> values;
 
@@ -40,6 +39,5 @@ int db_validators_tag::get_all_validators(std::vector<zera_txn::Validator> &vali
 
 int db_validators_tag::get_all_keys(std::vector<std::string> &keys)
 {
-    std::lock_guard<std::mutex> lock(db_validators::db_mutex);
     return database::get_all_keys(db_validators::db, keys);
 }

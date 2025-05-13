@@ -13,6 +13,7 @@
 #include "validators.h"
 #include "../temp_data/temp_data.h"
 #include "../logging/logging.h"
+#include "hex_conversion.h"
 
 const uint256_t quintillion = 1000000000000000000;
 
@@ -552,6 +553,7 @@ namespace
 
             std::vector<zera_txn::ProposalResult> results;
             bool staged = contract.governance().type() == zera_txn::GOVERNANCE_TYPE::STAGED;
+            bool cycle = contract.governance().type() == zera_txn::GOVERNANCE_TYPE::CYCLE;
 
             for (auto id : proposal_ledger.proposal_ids())
             {
@@ -632,6 +634,76 @@ namespace
                     }
                 }
             }
+            else if (cycle)
+            {
+                std::vector<std::pair<std::string, uint256_t>> next_stage;
+
+                for (auto result : results)
+                {
+                    if (result.passed())
+                    {
+                        if (result.option_cur_equiv_size() >= 1)
+                        {
+                            uint256_t vote = 0;
+                            for (auto option : result.option_cur_equiv())
+                            {
+                                uint256_t check_vote(option);
+
+                                vote += check_vote;
+                            }
+
+                            next_stage.push_back(std::make_pair(result.proposal_id(), vote));
+                        }
+                        else
+                        {
+                            uint256_t vote = boost::lexical_cast<uint256_t>(result.support_cur_equiv());
+                            uint256_t vote2 = boost::lexical_cast<uint256_t>(result.against_cur_equiv());
+                            vote += vote2;
+                            next_stage.push_back(std::make_pair(result.proposal_id(), vote));
+                        }
+                    }
+                }
+
+                uint32_t proposal_amount = 0;
+                if(contract.governance().has_max_approved())
+                {
+                    proposal_amount = contract.governance().max_approved();
+                }
+
+                if (proposal_amount == 0)
+                {
+                    for (auto result : results)
+                    {
+                        result.set_proposal_cut(false);
+                    }
+                }
+                else
+                {
+
+                    std::sort(next_stage.begin(), next_stage.end(), compare_by_uint256_t_desc);
+
+                    if (next_stage.size() > proposal_amount)
+                    {
+                        next_stage.resize(proposal_amount);
+                    }
+
+                    for (auto result : results)
+                    {
+                        bool found = false;
+                        for (auto pair : next_stage)
+                        {
+                            if (result.proposal_id() == pair.first)
+                            {
+                                found = true;
+                            }
+                        }
+
+                        result.set_proposal_cut(!found);
+                    }
+                }
+            }
+
+
 
             for (auto result : results)
             {

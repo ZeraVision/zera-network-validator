@@ -190,7 +190,7 @@ namespace
 
         return status;
     }
-    ZeraStatus process_contract_fees(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address)
+    ZeraStatus process_contract_fees(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address, const bool allowance)
     {
         std::string contract_fee_symbol = txn->contract_id();
         zera_txn::InstrumentContract contract;
@@ -218,11 +218,6 @@ namespace
 
         for (auto input : txn->input_transfers())
         {
-            if (!is_valid_uint256(input.amount()))
-            {
-                return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_contract_fee: Invalid uint256", zera_txn::TXN_STATUS::INVALID_UINT256);
-            }
-
             uint256_t input_amount(input.amount());
             amount += input_amount;
         }
@@ -264,32 +259,48 @@ namespace
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_contract_fee: Insufficient authorized contract fees.", zera_txn::TXN_STATUS::AUTHORIZED_INSUFFICIENT_CONTRACT_FEES);
         }
-        int x = 0;
-        for (auto input : txn->input_transfers())
+
+        if (allowance)
         {
-
-            logging::print("input.contract_fee_percent()", std::to_string(input.contract_fee_percent()));
-
-            uint256_t transfer_fee_amount = (contract_fee_amount * input.contract_fee_percent()) / 100000000;
-
-            logging::print("transfer_fee_amount", transfer_fee_amount.str());
-
-            std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(x));
+            uint256_t transfer_fee_amount = contract_fee_amount;
+            std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(0));
             std::string txn_hash = txn->base().hash();
             status = block_process::process_fees(contract, transfer_fee_amount, wallet_adr, contract_fee_symbol, false, status_fees, txn_hash, fee_address);
             if (!status.ok())
             {
                 return status;
             }
+        }
+        else
+        {
+            int x = 0;
 
-            x++;
+            for (auto input : txn->input_transfers())
+            {
+
+                logging::print("input.contract_fee_percent()", std::to_string(input.contract_fee_percent()));
+
+                uint256_t transfer_fee_amount = (contract_fee_amount * input.contract_fee_percent()) / 100000000;
+
+                logging::print("transfer_fee_amount", transfer_fee_amount.str());
+
+                std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(x));
+                std::string txn_hash = txn->base().hash();
+                status = block_process::process_fees(contract, transfer_fee_amount, wallet_adr, contract_fee_symbol, false, status_fees, txn_hash, fee_address);
+                if (!status.ok())
+                {
+                    return status;
+                }
+
+                x++;
+            }
         }
         status_fees.set_contract_contract_id(contract_fee_symbol);
         status_fees.set_contract_fees(boost::lexical_cast<std::string>(contract_fee_amount));
 
         return ZeraStatus();
     }
-    ZeraStatus process_base_fees(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address)
+    ZeraStatus process_base_fees(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address, const bool allowance)
     {
         ZeraStatus status;
         uint256_t fee_type(get_txn_fee(zera_txn::TRANSACTION_TYPE::COIN_TYPE));
@@ -314,9 +325,17 @@ namespace
         calculate_byte_fees(fee_type, txn->ByteSize(), txn_fee_amount, contract.coin_denomination().amount());
 
         uint32_t base_fee_percent = 0;
-        for (auto input : txn->input_transfers())
+
+        if (!allowance)
         {
-            base_fee_percent += input.fee_percent();
+            for (auto input : txn->input_transfers())
+            {
+                base_fee_percent += input.fee_percent();
+            }
+        }
+        else
+        {
+            base_fee_percent = 100000000;
         }
 
         if (base_fee_percent != 100000000)
@@ -350,35 +369,59 @@ namespace
 
             txn_fee_amount += (key_fee * denomination) / equiv;
         }
-        int x = 0;
-        for (auto input : txn->input_transfers())
+
+        if (!allowance)
         {
+            int x = 0;
 
-            uint256_t fee_amount = (txn_fee_amount * input.fee_percent()) / 100000000;
+            for (auto input : txn->input_transfers())
+            {
 
-            uint256_t auth_amount = (base_fee * input.fee_percent()) / 100000000;
+                uint256_t fee_amount = (txn_fee_amount * input.fee_percent()) / 100000000;
+
+                uint256_t auth_amount = (base_fee * input.fee_percent()) / 100000000;
+
+                if (fee_amount > auth_amount)
+                {
+                    return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_utils.cpp: process_simple_fees: fee amount is greater than auth amount: " + contract.contract_id());
+                }
+
+                std::string wallet_key = wallets::generate_wallet(txn->auth().public_key(x));
+                status = block_process::process_fees(contract, fee_amount, wallet_key, contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
+
+                if (!status.ok())
+                {
+                    return status;
+                }
+
+                x++;
+            }
+        }
+        else
+        {
+            uint256_t fee_amount = txn_fee_amount;
+
+            uint256_t auth_amount = base_fee;
 
             if (fee_amount > auth_amount)
             {
                 return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_utils.cpp: process_simple_fees: fee amount is greater than auth amount: " + contract.contract_id());
             }
 
-            std::string wallet_key = wallets::generate_wallet(txn->auth().public_key(x));
+            std::string wallet_key = wallets::generate_wallet(txn->auth().public_key(0));
             status = block_process::process_fees(contract, fee_amount, wallet_key, contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
 
             if (!status.ok())
             {
                 return status;
             }
-
-            x++;
         }
         status_fees.set_base_contract_id(contract.contract_id());
         status_fees.set_base_fees(boost::lexical_cast<std::string>(txn_fee_amount));
 
         return ZeraStatus();
     }
-    ZeraStatus validate_wallets(const zera_txn::CoinTXN *txn)
+    ZeraStatus validate_wallets(const zera_txn::CoinTXN *txn, const bool allowance)
     {
         uint256_t input_amount = 0;
         uint256_t output_amount = 0;
@@ -400,8 +443,22 @@ namespace
 
             uint256_t input_temp(input.amount());
             input_amount += input_temp;
+            std::string wallet_adr;
 
-            std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(x));
+            if (allowance)
+            {
+                wallet_adr = txn->auth().allowance_address(x);
+
+                if (!allowance_tracker::check_allowance(wallet_adr, txn->auth().public_key(0), txn->contract_id(), input_temp, txn->base().hash(), txn->base().public_key()))
+                {
+                    return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_transfers: Insufficient allowance", zera_txn::TXN_STATUS::INVALID_ALLOWANCE);
+                }
+            }
+            else
+            {
+                wallet_adr = wallets::generate_wallet(txn->auth().public_key(x));
+            }
+
             if (std::find(wallet_adrs.begin(), wallet_adrs.end(), wallet_adr) != wallet_adrs.end())
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_transfers: Duplicate wallet address", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
@@ -413,14 +470,13 @@ namespace
             }
             uint256_t increment(input.amount());
             uint256_t sender_balance;
-            
 
             ZeraStatus status = block_process::get_sender_wallet(wallet_adr + txn->contract_id(), sender_balance);
             if (!status.ok())
             {
                 return status;
             }
- 
+
             if (sender_balance < increment)
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_transfers: Insufficient funds input amount.", zera_txn::TXN_STATUS::INSUFFICIENT_AMOUNT);
@@ -431,8 +487,8 @@ namespace
         }
 
         for (auto output : txn->output_transfers())
-        {   
-            if(!check_safe_send(txn->base(), output.wallet_address()))
+        {
+            if (!check_safe_send(txn->base(), output.wallet_address()))
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_single: Coin transactions cannot be safe send.", zera_txn::TXN_STATUS::INVALID_SAFE_SEND);
             }
@@ -460,36 +516,45 @@ namespace
         return ZeraStatus();
     }
 
-    ZeraStatus process_transfers(const zera_txn::CoinTXN *txn)
+    ZeraStatus process_transfers(const zera_txn::CoinTXN *txn, const bool allowance)
     {
-
         int x = 0;
-        for (auto input : txn->input_transfers())
+        ZeraStatus status;
+
+        if (allowance)
         {
+            std::vector<std::string> wallet_adrs;
 
-            std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(x), txn->contract_id());
-            uint256_t increment(input.amount());
-
-            ZeraStatus status = balance_tracker::subtract_txn_balance(wallet_adr, increment, txn->base().hash());
-
-            if (!status.ok())
+            for (auto adress : txn->auth().allowance_address())
             {
-                return status;
+                wallet_adrs.push_back(adress);
             }
 
-            x++;
+            status = balance_tracker::subtract_txn_balance_transfer_allowance(txn->input_transfers(), wallet_adrs, txn->contract_id(), txn->base().hash());
         }
-
-        for (auto output : txn->output_transfers())
+        else
         {
+            std::vector<zera_txn::PublicKey> public_keys;
 
-            uint256_t increment(output.amount());
-            balance_tracker::add_txn_balance(output.wallet_address() + txn->contract_id(), increment, txn->base().hash());
+            for (auto input : txn->input_transfers())
+            {
+                public_keys.push_back(txn->auth().public_key(x));
+                x++;
+            }
+
+            status = balance_tracker::subtract_txn_balance_transfer(txn->input_transfers(), public_keys, txn->contract_id(), txn->base().hash());
         }
+
+        if (!status.ok())
+        {
+            return status;
+        }
+
+        balance_tracker::add_txn_balance_transfer(txn->output_transfers(), txn->contract_id(), txn->base().hash());
 
         return ZeraStatus();
     }
-    ZeraStatus check_transfer_parameters(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn)
+    ZeraStatus check_transfer_parameters(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn, const bool allowance)
     {
         ZeraStatus status;
 
@@ -498,6 +563,7 @@ namespace
         {
             return status;
         }
+
         if (!timed)
         {
             status = check_restricted(txn, txn_type, timed);
@@ -507,56 +573,41 @@ namespace
             }
         }
 
-        status = validate_wallets(txn);
+        status = validate_wallets(txn, allowance);
 
         if (!status.ok())
         {
             return status;
         }
-        status = process_contract_fees(txn, status_fees, fee_address);
+        status = process_contract_fees(txn, status_fees, fee_address, allowance);
+
         if (!status.ok())
         {
             return status;
         }
-        status = process_transfers(txn);
+        status = process_transfers(txn, allowance);
 
         return status;
     }
-}
-
-template <>
-ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn)
-{
-    bool gov = false;
-    if (txn->base().public_key().has_governance_auth())
+    ZeraStatus process_allowance(const zera_txn::CoinTXN *txn, const bool timed, const bool gov, bool &gov_auth)
     {
-        ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash());
-        if (!status.ok())
+        if (txn->auth().allowance_address_size() != txn->input_transfers_size())
         {
-            return status;
+            return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Allowance address size does not match input transfer size", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
         }
-        gov = true;
-    }
-    if (timed && txn->auth().public_key_size() > 1)
-    {
-        return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Timed transactions cannot have multiple public keys", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
-    }
-    if (txn->auth().public_key_size() != txn->auth().nonce_size())
-    {
-        return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Public key size does not match nonce size", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
-    }
-    if (txn->auth().public_key_size() != txn->input_transfers_size())
-    {
-        return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Public key size does not match input transfer size", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
-    }
-    int x = 0;
-    bool gov_auth = false;
-    for (auto public_key : txn->auth().public_key())
-    {
-        uint64_t nonce = txn->auth().nonce(x);
-
+        if (txn->auth().allowance_address_size() != txn->auth().allowance_nonce_size())
+        {
+            return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Allowance address size does not match allowance nonce size", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
+        }
+        if (txn->auth().public_key_size() != 1)
+        {
+            return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: There needs to be exactly 1 public key for allowance txn", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
+        }
         if (!timed)
         {
+            uint64_t nonce = txn->auth().nonce(0);
+            zera_txn::PublicKey public_key = txn->auth().public_key(0);
+
             if (gov && public_key.has_governance_auth())
             {
                 if (txn->base().public_key().governance_auth() != public_key.governance_auth())
@@ -564,18 +615,118 @@ ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN
                     return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Governance auth does not match", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
                 }
                 gov_auth = true;
-                break;
             }
 
-            ZeraStatus status = block_process::check_nonce(public_key, nonce, txn->base().hash());
-
-            if (!status.ok())
+            if (!gov_auth)
             {
-                return status;
+                ZeraStatus status = block_process::check_nonce(public_key, nonce, txn->base().hash());
+
+                if (!status.ok())
+                {
+                    return status;
+                }
+            }
+
+            int x = 0;
+            for (auto allowance_address : txn->auth().allowance_address())
+            {
+                ZeraStatus status = block_process::check_nonce_adr(allowance_address, txn->auth().allowance_nonce(x), txn->base().hash());
+
+                if (!status.ok())
+                {
+                    return status;
+                }
+
+                x++;
             }
         }
 
-        x++;
+        return ZeraStatus();
+    }
+    ZeraStatus process_standard(const zera_txn::CoinTXN *txn, const bool timed, const bool gov, bool &gov_auth)
+    {
+        if (txn->auth().public_key_size() != txn->auth().nonce_size())
+        {
+            return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Public key size does not match nonce size", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
+        }
+        if (txn->auth().public_key_size() != txn->input_transfers_size())
+        {
+            return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Public key size does not match input transfer size", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
+        }
+        int x = 0;
+        for (auto public_key : txn->auth().public_key())
+        {
+            uint64_t nonce = txn->auth().nonce(x);
+
+            if (!timed)
+            {
+                if (gov && public_key.has_governance_auth())
+                {
+                    if (txn->base().public_key().governance_auth() != public_key.governance_auth())
+                    {
+                        return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Governance auth does not match", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
+                    }
+                    gov_auth = true;
+                    break;
+                }
+                ZeraStatus status = block_process::check_nonce(public_key, nonce, txn->base().hash());
+
+                if (!status.ok())
+                {
+                    return status;
+                }
+            }
+
+            x++;
+        }
+
+        return ZeraStatus();
+    }
+}
+
+template <>
+ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn)
+{
+    bool gov = false;
+    bool allowance = false;
+    if (txn->base().public_key().has_governance_auth())
+    {
+        ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash());
+
+        if (!status.ok())
+        {
+            return status;
+        }
+        gov = true;
+    }
+
+    if (timed && txn->auth().public_key_size() > 1)
+    {
+        return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Timed transactions cannot have multiple public keys", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
+    }
+
+    bool gov_auth = false;
+
+    if (txn->auth().allowance_address_size() > 0)
+    {
+        ZeraStatus status = process_allowance(txn, timed, gov, gov_auth);
+
+        if (!status.ok())
+        {
+            return status;
+        }
+
+        allowance = true;
+    }
+
+    if (!allowance)
+    {
+        ZeraStatus status = process_standard(txn, timed, gov, gov_auth);
+
+        if (!status.ok())
+        {
+            return status;
+        }
     }
 
     if (gov && !gov_auth)
@@ -583,27 +734,55 @@ ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Governance auth not found", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
     }
 
-    ZeraStatus status = process_base_fees(txn, status_fees, fee_address);
+    ZeraStatus status = process_base_fees(txn, status_fees, fee_address, allowance);
+
     if (!status.ok())
     {
         return status;
     }
 
-    status = check_transfer_parameters(txn, status_fees, txn_type, timed, fee_address, sc_txn);
-    x = 0;
-    while (x < txn->input_transfers_size())
+    status = check_transfer_parameters(txn, status_fees, txn_type, timed, fee_address, sc_txn, allowance);
+    int x = 0;
+
+    if (allowance && status.ok())
     {
-        std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(x));
-        uint64_t txn_nonce = txn->auth().nonce(x);
+        std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(0));
+        uint64_t txn_nonce = txn->auth().nonce(0);
         nonce_tracker::add_nonce(wallet_adr, txn_nonce, txn->base().hash());
-        x++;
+
+        while (x < txn->auth().allowance_address_size())
+        {
+            std::string wallet_adr1 = txn->auth().allowance_address(x);
+            txn_nonce = txn->auth().allowance_nonce(x);
+            nonce_tracker::add_nonce(wallet_adr1, txn_nonce, txn->base().hash());
+            x++;
+        }
+    }
+    else
+    {
+        while (x < txn->input_transfers_size())
+        {
+            std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(x));
+            uint64_t txn_nonce = txn->auth().nonce(x);
+            nonce_tracker::add_nonce(wallet_adr, txn_nonce, txn->base().hash());
+            x++;
+        }
     }
 
     status_fees.set_status(status.txn_status());
 
     if (!status.ok())
     {
+        if (allowance)
+        {
+            allowance_tracker::remove_txn_allowance(txn->base().hash());
+        }
         logging::print(status.read_status());
+    }
+
+    if (allowance && status.ok())
+    {
+        allowance_tracker::add_txn_to_pre_process(txn->base().hash());
     }
 
     return ZeraStatus();

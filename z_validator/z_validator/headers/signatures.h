@@ -6,7 +6,7 @@
 #include <vector>
 #include <iostream>
 #include "validator.pb.h"
-#include <leveldb/db.h>
+#include <rocksdb/db.h>
 #include "const.h"
 #include "zera_status.h"
 
@@ -46,6 +46,9 @@ namespace signatures {
     KeyType get_key_type(const std::string &public_key, bool restricted = false);
     int get_key_size(const KeyType& key_type);
     bool verify_attestation(const zera_validator::BlockAttestation& attestation);
+    void sign_new_coin_txn(zera_txn::CoinTXN* txn, std::vector<KeyPair> key_pairs);
+    void sign_txn_gossip(zera_validator::TXNGossip *txn, KeyPair key_pair);
+    bool verify_txn_gossip(zera_validator::TXNGossip *txn);
     // std::string sign_message(const std::vector<unsigned char>& message, KeyPair key_pair);
     // bool verify_signature(const std::vector<unsigned char>& message, std::vector<unsigned char>& signature, std::vector<unsigned char>& public_key);
 };

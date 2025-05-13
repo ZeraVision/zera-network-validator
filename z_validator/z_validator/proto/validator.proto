@@ -13,6 +13,7 @@ service ValidatorService{
     rpc StreamFailedBlock(stream DataChunk) returns (google.protobuf.Empty);
     rpc StreamBroadcast(stream DataChunk) returns (google.protobuf.Empty);
     rpc SyncBlockchain(BlockSync) returns (stream DataChunk);
+    rpc StreamGossip(stream DataChunk) returns (google.protobuf.Empty);
 
     rpc Broadcast(Block) returns (google.protobuf.Empty);
     rpc ValidatorRegistration(zera_txn.ValidatorRegistration) returns (google.protobuf.Empty);
@@ -44,8 +45,20 @@ service ValidatorService{
     rpc StreamBlockAttestation(stream DataChunk) returns (stream DataChunk);
     rpc StreamRequestSlashed(stream SlashedRequest) returns (stream DataChunk);
     rpc Balance(BalanceRequest) returns (BalanceResponse);
+    rpc Gossip(TXNGossip) returns (google.protobuf.Empty);
+    rpc ValidatorAllowance(zera_txn.AllowanceTXN) returns (google.protobuf.Empty);
 }
 
+message AllowanceState{
+    optional string allowed_currency_equivelent = 1; //1000000000000000000 = $1.00 can only have either this or allowed_amount
+    optional string allowed_amount = 2;              //Amount of parts of token can only have either this or allowed_currency_equivelent
+    optional uint32 period_months = 3;               //How many months until this allowance resets, can only have this or period_seconds
+    optional uint32 period_seconds = 4;              //How many seconds until this allowance resets, can only have this or period_months
+    google.protobuf.Timestamp period_end = 5;        //When the allowance period ends, and will reset
+    google.protobuf.Timestamp start_time = 6;        //the very first time a allowance period started
+    string used_amount = 9;                          //Amount of the allowance that has been used
+    zera_txn.PublicKey public_key = 10;              //Public key of the wallet that this allowance is for
+}
 message StakeMultipliers
 {
     map<string, string> contract_multipliers = 1; //key = contract_id, value = multiplier (multiplier 100 000 = 100%)
@@ -177,6 +190,13 @@ message NFT{
     optional zera_txn.ItemContractFees contract_fees = 5;
 }
 
+message Item{
+    string contract_id = 1;
+    string item_id = 2;
+}
+message WalletItems{
+    repeated Item items = 1;
+}
 message ProcessLedger{
     repeated bytes cycle_contract_ids = 1; //all contracts that need proposals processed
     repeated bytes proposal_ids = 2;       //all staggered proposals that need to be processed
@@ -362,8 +382,9 @@ message ContractPrice{
 }
 
 message BalanceTracker{
-    repeated bytes wallet_addresses = 1;
-    repeated string balances = 2;
+    map<string, string> wallet_balances = 1; // Key: wallet address, Value: balance as string
+    // repeated bytes wallet_addresses = 1;
+    // repeated string balances = 2;
 }
 
 message TokenLookup{
@@ -376,4 +397,14 @@ message BalanceRequest{
 }
 message BalanceResponse{
     string balance = 1;
+}
+
+message TXN{
+    zera_txn.TRANSACTION_TYPE txn_type = 1;
+    bytes serialized_txn = 2;
+}
+message TXNGossip{
+    repeated TXN txns = 1;
+    zera_txn.PublicKey public_key = 2;
+    optional bytes signature = 3;
 }

@@ -19,9 +19,9 @@ namespace
     void remove_block_batch(zera_validator::BlockBatch *block_batch)
     {
 
-        leveldb::WriteBatch remove_block_batch;
-        leveldb::WriteBatch remove_header_batch;
-        leveldb::WriteBatch remove_hash_batch;
+        rocksdb::WriteBatch remove_block_batch;
+        rocksdb::WriteBatch remove_header_batch;
+        rocksdb::WriteBatch remove_hash_batch;
 
         std::string key;
         std::string hash;
@@ -44,11 +44,11 @@ namespace
         db_hash_index::store_batch(remove_hash_batch);
     }
 
-    int write_block_batch(zera_validator::BlockBatch *batch, leveldb::WriteBatch &wallet_batch)
+    int write_block_batch(zera_validator::BlockBatch *batch, rocksdb::WriteBatch &wallet_batch)
     {
-        leveldb::WriteBatch block_batch;
-        leveldb::WriteBatch header_batch;
-        leveldb::WriteBatch hash_index_batch;
+        rocksdb::WriteBatch block_batch;
+        rocksdb::WriteBatch header_batch;
+        rocksdb::WriteBatch hash_index_batch;
         block_utils::block_batch_to_write_batch(batch, block_batch, header_batch, hash_index_batch);
 
         if (!db_blocks::store_batch(block_batch) || !db_headers::store_batch(header_batch) ||

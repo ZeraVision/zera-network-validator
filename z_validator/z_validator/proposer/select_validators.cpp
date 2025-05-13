@@ -95,7 +95,14 @@ namespace
         db_validator_archive::get_single(height_str, archive_data);
 
         zera_validator::ValidatorArchive validator_archive;
-        validator_archive.ParseFromString(archive_data);
+
+        while(!validator_archive.ParseFromString(archive_data) || validator_archive.validators_size() == 0)
+        {
+            db_validator_archive::get_single(height_str, archive_data);
+            logging::print("validator archive parse error - block height:", height_str, true);
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        
 
         for (auto validator : validator_archive.validators())
         {

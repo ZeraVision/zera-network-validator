@@ -10,7 +10,7 @@
 void logging::log(const std::string &msg)
 {
     std::ofstream log_file;
-    log_file.open("/volume/config/grpc-service.log", std::ios_base::app); // Open in append mode
+    log_file.open("/data/logs/grpc-service.log", std::ios_base::app); // Open in append mode
     if (!log_file.is_open())
     {
         // Handle error if the file cannot be opened

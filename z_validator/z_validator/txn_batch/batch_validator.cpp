@@ -10,8 +10,8 @@
 //if validator sends offline heartbeat, they are just offline not unbonded
 void txn_batch::batch_validator_heartbeat(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, const uint64_t& block_height)
 {
-    leveldb::WriteBatch batch;
-    leveldb::WriteBatch unbond_batch;
+    rocksdb::WriteBatch batch;
+    rocksdb::WriteBatch unbond_batch;
     for (auto txn : txns.validator_heartbeat_txns())
     {
         if (txn_passed.at(txn.base().hash()))
@@ -36,10 +36,10 @@ void txn_batch::batch_validator_heartbeat(const zera_txn::TXNS &txns, const std:
 
 void txn_batch::batch_validator_registration(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, const zera_validator::BlockHeader &header)
 {
-    leveldb::WriteBatch batch;
-    leveldb::WriteBatch batch_lookup;
-    leveldb::WriteBatch unbond_batch;
-    leveldb::WriteBatch archive_batch;
+    rocksdb::WriteBatch batch;
+    rocksdb::WriteBatch batch_lookup;
+    rocksdb::WriteBatch unbond_batch;
+    rocksdb::WriteBatch archive_batch;
     for (auto txn : txns.validator_registration_txns())
     {
         
@@ -66,6 +66,7 @@ void txn_batch::batch_validator_registration(const zera_txn::TXNS &txns, const s
             }
             else
             {
+                logging::print("Unbonding validator: ", base58_encode_public_key(pub_str), true);
                 unbond_batch.Put(pub_str, header.timestamp().SerializeAsString());
                 batch_lookup.Delete(pub_str);
             }

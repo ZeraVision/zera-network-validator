@@ -17,6 +17,7 @@
 #include "../temp_data/temp_data.h"
 #include "verify_process_txn.h" 
 #include "wallets.h"
+#include "../util/stopwatch.h"
 
 class block_process
 {
@@ -29,6 +30,7 @@ public:
         NOT_ALLOWED = 3
     };
     static ZeraStatus check_nonce(const zera_txn::PublicKey &public_key, const uint64_t& txn_nonce, const std::string &txn_hash = "");
+    static ZeraStatus check_nonce_adr(const std::string& wallet_adr , const uint64_t &txn_nonce, const std::string& txn_hash = "");
     static ZeraStatus process_fees(const zera_txn::InstrumentContract &contract, uint256_t fee_amount,
                                    const std::string &wallet_adr, const std::string &fee_symbol,
                                    bool base, zera_txn::TXNStatusFees &status_fees, const std::string &txn_hash, const std::string& current_validator_address = "", const bool storage_fees = false);
@@ -39,6 +41,7 @@ public:
     static ZeraStatus get_contract(const std::string contract_id, zera_txn::InstrumentContract &contract);
     static ZeraStatus check_validator(const std::string &public_key, const zera_txn::TRANSACTION_TYPE &txn_type);
     static void start_block_process();
+    static void start_block_process_v2();
 
     template <typename TXType>
     static ZeraStatus check_parameters(const TXType *txn, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address = "");
@@ -79,7 +82,7 @@ public:
     // process txn
     // after, remove from pending txns and either add to preprocessed or discard
     template <typename TXType>
-    static void process_txn(TXType *txn, const zera_txn::TRANSACTION_TYPE &txn_type);
+    static void process_txn(TXType *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip);
 
 };
 

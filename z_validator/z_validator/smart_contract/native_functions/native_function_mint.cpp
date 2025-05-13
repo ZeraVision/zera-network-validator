@@ -40,7 +40,7 @@ namespace
         txn->mutable_base()->set_fee_amount(txn_fee_amount.str());
     }
 
-    void set_base(zera_txn::BaseTXN *base, const SenderDataType &sender)
+    void set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
         std::string sc_auth = "sc_" + sender.smart_contract_instance;
         base->mutable_public_key()->set_smart_contract_auth(sc_auth);
@@ -55,7 +55,7 @@ namespace
         base->set_safe_send(false);
     }
 
-    void current_set_base(zera_txn::BaseTXN *base, const SenderDataType &sender)
+    void current_set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
         size_t call_size = sender.wallet_chain.size();
         int call_index = call_size - 1;
@@ -75,7 +75,7 @@ namespace
         base->set_safe_send(false);
     }
 
-    bool delegate_set_base(zera_txn::BaseTXN *base, const SenderDataType &sender, const std::string &delegate_wallet)
+    bool delegate_set_base(zera_txn::BaseTXN *base, SenderDataType &sender, const std::string &delegate_wallet)
     {
         std::string sc_auth = "";
 
@@ -109,7 +109,7 @@ namespace
         return true;
     }
 
-    std::string process_txn(const SenderDataType &sender, const zera_txn::MintTXN &txn)
+    std::string process_txn(SenderDataType &sender, const zera_txn::MintTXN &txn)
     {
         std::string value;
         db_smart_contracts::get_single(sender.block_txns_key, value);
@@ -118,21 +118,20 @@ namespace
 
         std::string fee_address = sender.fee_address;
         ZeraStatus status = proposing::unpack_process_wrapper(&txn, &block_txns, zera_txn::TRANSACTION_TYPE::MINT_TYPE, false, fee_address, true);
-
         if (status.ok())
         {
+            sender.txn_hashes.push_back(txn.base().hash());
             block_txns.add_mint_txns()->CopyFrom(txn);
             txn_hash_tracker::add_hash(txn.base().hash());
             uint64_t nonce = txn.base().nonce();
             nonce_tracker::add_used_nonce(sender.smart_contract_wallet, nonce);
         }
-
         db_smart_contracts::store_single(sender.block_txns_key, block_txns.SerializeAsString());
 
         return zera_txn::TXN_STATUS_Name(status.txn_status());
     }
 
-    std::string create_mint(const SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet)
+    std::string create_mint(SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet)
     {
         zera_txn::MintTXN txn;
 
@@ -153,7 +152,7 @@ namespace
         return process_txn(sender, txn);
     }
 
-    std::string current_create_mint(const SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet)
+    std::string current_create_mint(SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet)
     {
         zera_txn::MintTXN txn;
 
@@ -174,7 +173,7 @@ namespace
         return process_txn(sender, txn);
     }
 
-    std::string delegate_create_mint(const SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet, const std::string &delegate_wallet)
+    std::string delegate_create_mint(SenderDataType &sender, const std::string &contract_id, const std::string &amount, const std::string &wallet, const std::string &delegate_wallet)
     {
         zera_txn::MintTXN txn;
 

@@ -386,6 +386,17 @@ namespace
 
                     break;
                 }
+                case zera_txn::TRANSACTION_TYPE::ALLOWANCE_TYPE:
+                {
+                    zera_txn::AllowanceTXN net_txn;
+                    status = parse_validate(net_txn, gov_txn.serialized_txn(), contract_adr, gov_txn.txn_hash());
+                    if (!status.ok())
+                    {
+                        return status;
+                    }
+
+                    break;
+                }
                 case zera_txn::TRANSACTION_TYPE::UKNOWN_TYPE:
                 {
                     return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_proposal.cpp: check_txn: Unknown Transaction Type", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
@@ -449,12 +460,12 @@ namespace
 
         // store the remainder of the fee in temp wallet address (which is proposal hash)
         std::string proposal_wallet = "p_" + txn->base().hash();
-        status = balance_tracker::subtract_txn_balance(wallet_adr + fee_contract.contract_id(), fee_remainder, txn->base().hash());
+        status = balance_tracker::subtract_txn_balance(wallet_adr, fee_contract.contract_id(), fee_remainder, txn->base().hash());
         if (!status.ok())
         {
             return status;
         }
-        balance_tracker::add_txn_balance(proposal_wallet + fee_contract.contract_id(), fee_remainder, txn->base().hash());
+        balance_tracker::add_txn_balance(proposal_wallet, fee_contract.contract_id(), fee_remainder, txn->base().hash());
         proposing::set_txn_token_fees(txn->base().hash(), fee_contract.contract_id(), proposal_wallet, fee_remainder);
         status = block_process::process_fees(fee_contract, divided_fee, wallet_adr, fee_contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
 
