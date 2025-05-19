@@ -11,7 +11,26 @@ void proposer_tracker::add_proposer(const zera_txn::Validator& proposer_data){
     new_proposer.CopyFrom(proposer_data);
     proposers.push_back(new_proposer);
 }
+bool proposer_tracker::check_proposer(const zera_txn::PublicKey& proposer_key)
+{
+    std::lock_guard<std::mutex> lock(mtx);
 
+    std::string val_key = wallets::get_public_key_string(proposer_key);
+    std::string val_value;
+    db_validators::get_single(val_key, val_value);
+    zera_txn::Validator val;
+    val.ParseFromString(val_value);
+
+    for(auto& proposer : proposers)
+    {
+        if(proposer.public_key().single() == val.public_key().single())
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 void proposer_tracker::get_current_proposers(std::vector<zera_txn::Validator>& proposer_data){
     std::lock_guard<std::mutex> lock(mtx);
 

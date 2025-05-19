@@ -40,8 +40,6 @@ void block_utils::set_block(zera_validator::Block *block)
 
     block_header->set_previous_block_hash(previous_block_header.hash());
     block_header->set_version(ValidatorConfig::get_version());
-    google::protobuf::Timestamp *tsp = block_header->mutable_timestamp();
-    tsp->CopyFrom(google::protobuf::util::TimeUtil::GetCurrentTime());
     block_header->set_block_height(height);
     block_header->set_fee_address(ValidatorConfig::get_fee_address_string());
     signatures::sign_block_proposer(block, ValidatorConfig::get_gen_key_pair());
@@ -61,7 +59,7 @@ void block_utils::set_block_sync(zera_validator::Block *block, const zera_valida
     height = previous_block_header.block_height() + 1;
 
     block_header->set_previous_block_hash(previous_block_header.hash());
-    block_header->set_version(ValidatorConfig::get_version());
+    block_header->set_version(original_header.version());
     block_header->mutable_timestamp()->CopyFrom(original_header.timestamp());
 
     block_header->set_block_height(height);
@@ -85,7 +83,7 @@ void block_utils::hash_block(zera_validator::Block *block)
     block_header->set_hash(hash);
 }
 
-std::string block_utils::block_batch_to_write_batch(zera_validator::BlockBatch *block_batch, leveldb::WriteBatch &write_block_batch, leveldb::WriteBatch &write_header_batch, leveldb::WriteBatch &hash_index_batch)
+std::string block_utils::block_batch_to_write_batch(zera_validator::BlockBatch *block_batch, rocksdb::WriteBatch &write_block_batch, rocksdb::WriteBatch &write_header_batch, rocksdb::WriteBatch &hash_index_batch)
 {
     std::string key;
     for (auto block : block_batch->blocks())

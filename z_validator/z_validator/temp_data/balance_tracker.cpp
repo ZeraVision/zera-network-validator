@@ -2,6 +2,8 @@
 #include "db_base.h"
 #include "base58.h"
 #include "../logging/logging.h"
+#include "wallets.h"
+#include <unordered_map>
 
 namespace
 {
@@ -100,41 +102,152 @@ std::map<std::string, std::map<std::string, uint256_t>> balance_tracker::add_txn
 std::map<std::string, std::map<std::string, uint256_t>> balance_tracker::subtract_txn_balances;
 std::mutex balance_tracker::mtx;
 
-void balance_tracker::add_txn_balance(const std::string &wallet_key, const uint256_t &amount, const std::string &txn_hash)
+void balance_tracker::add_txn_balance_transfer(const google::protobuf::RepeatedPtrField<zera_txn::OutputTransfers> &transfers, const std::string &contract_id, const std::string &txn_hash)
 {
     std::lock_guard<std::mutex> lock(mtx);
-    std::string balance_key = "ADD_BALANCE_"+ txn_hash;
+    std::string balance_key = "ADD_BALANCE_" + txn_hash;
     std::string balance_value;
     zera_validator::BalanceTracker balance_tracker;
+    rocksdb::WriteBatch processed_batch;
+    std::unordered_map<std::string, std::string> batch_keys;
 
-    if(db_processed_wallets::get_single(balance_key, balance_value))
+    if (db_processed_wallets::get_single(balance_key, balance_value))
     {
         balance_tracker.ParseFromString(balance_value);
     }
 
-    int x = 0;
-    bool found = false;
-    for(auto address : balance_tracker.wallet_addresses())
+    auto &wallet_balances = *balance_tracker.mutable_wallet_balances();
+
+    for (auto transfer : transfers)
     {
-        if(address == wallet_key)
+        std::string wallet_key = transfer.wallet_address() + contract_id;
+
+        auto wallet_vec = base58_encode(transfer.wallet_address());
+        std::string key(wallet_vec.begin(), wallet_vec.end());
+        key = key + contract_id;
+
+        uint256_t amount(transfer.amount());
+        if (wallet_balances.find(key) != wallet_balances.end())
         {
-            uint256_t balance(balance_tracker.balances(x));
+            uint256_t balance(wallet_balances[key]);
             balance += amount;
-            balance_tracker.set_balances(x, boost::lexical_cast<std::string>(balance));
-            db_processed_wallets::store_single(balance_key, balance_tracker.SerializeAsString());
-            found = true;
-            break;
+            wallet_balances[key] = boost::lexical_cast<std::string>(balance);
+        }
+        else
+        {
+            wallet_balances[key] = boost::lexical_cast<std::string>(amount);
         }
 
-        x++;
+        std::string balance_str;
+
+        if (batch_keys.find(wallet_key) != batch_keys.end())
+        {
+            uint256_t balance(batch_keys[wallet_key]);
+            balance += amount;
+            processed_batch.Put(wallet_key, balance.str());
+            batch_keys[wallet_key] = balance.str();
+        }
+        else
+        {
+            if (!db_processed_wallets::get_single(wallet_key, balance_str))
+            {
+                db_wallets::get_single(wallet_key, balance_str);
+            }
+
+            uint256_t balance(balance_str);
+            balance += amount;
+
+            // Add key to the batch and track it in the map
+            processed_batch.Put(wallet_key, balance.str());
+            batch_keys[wallet_key] = balance.str();
+        }
     }
 
-    if(!found)
+    processed_batch.Put(balance_key, balance_tracker.SerializeAsString());
+    db_processed_wallets::store_batch(processed_batch);
+}
+
+void balance_tracker::add_txn_balance_premint(const google::protobuf::RepeatedPtrField<zera_txn::PreMintWallet> &premints, const std::string &contract_id, const std::string &txn_hash)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    std::string balance_key = "ADD_BALANCE_" + txn_hash;
+    std::string balance_value;
+    zera_validator::BalanceTracker balance_tracker;
+    rocksdb::WriteBatch processed_batch;
+
+    if (db_processed_wallets::get_single(balance_key, balance_value))
     {
-        balance_tracker.add_wallet_addresses(wallet_key);
-        balance_tracker.add_balances(boost::lexical_cast<std::string>(amount));
-        db_processed_wallets::store_single(balance_key, balance_tracker.SerializeAsString());
+        balance_tracker.ParseFromString(balance_value);
     }
+
+    auto &wallet_balances = *balance_tracker.mutable_wallet_balances();
+
+    for (auto premint : premints)
+    {
+        std::string wallet_key = premint.address() + contract_id;
+
+        auto wallet_vec = base58_encode(premint.address());
+        std::string key(wallet_vec.begin(), wallet_vec.end());
+        key = key + contract_id;
+
+        uint256_t amount(premint.amount());
+        if (wallet_balances.find(key) != wallet_balances.end())
+        {
+            uint256_t balance(wallet_balances[key]);
+            balance += amount;
+            wallet_balances[key] = boost::lexical_cast<std::string>(balance);
+        }
+        else
+        {
+            wallet_balances[key] = boost::lexical_cast<std::string>(amount);
+        }
+
+        std::string balance_str;
+        if (!db_processed_wallets::get_single(wallet_key, balance_str))
+        {
+            db_wallets::get_single(wallet_key, balance_str);
+        }
+
+        uint256_t balance(balance_str);
+        balance += amount;
+
+        processed_batch.Put(wallet_key, balance.str());
+    }
+
+    processed_batch.Put(balance_key, balance_tracker.SerializeAsString());
+    db_processed_wallets::store_batch(processed_batch);
+}
+
+void balance_tracker::add_txn_balance(const std::string &wallet_address, const std::string &contract_id, const uint256_t &amount, const std::string &txn_hash)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    std::string balance_key = "ADD_BALANCE_" + txn_hash;
+    std::string balance_value;
+    zera_validator::BalanceTracker balance_tracker;
+    std::string wallet_key = wallet_address + contract_id;
+
+    if (db_processed_wallets::get_single(balance_key, balance_value))
+    {
+        balance_tracker.ParseFromString(balance_value);
+    }
+    auto &wallet_balances = *balance_tracker.mutable_wallet_balances();
+
+    auto wallet_vec = base58_encode(wallet_address);
+    std::string key(wallet_vec.begin(), wallet_vec.end());
+    key = key + contract_id;
+
+    if (wallet_balances.find(key) != wallet_balances.end())
+    {
+        uint256_t balance(wallet_balances[key]);
+        balance += amount;
+        wallet_balances[key] = boost::lexical_cast<std::string>(balance);
+    }
+    else
+    {
+        wallet_balances[key] = boost::lexical_cast<std::string>(amount);
+    }
+
+    db_processed_wallets::store_single(balance_key, balance_tracker.SerializeAsString());
 
     std::string balance_str;
     if (!db_processed_wallets::get_single(wallet_key, balance_str))
@@ -147,24 +260,174 @@ void balance_tracker::add_txn_balance(const std::string &wallet_key, const uint2
     db_processed_wallets::store_single(wallet_key, boost::lexical_cast<std::string>(balance));
 }
 
-ZeraStatus balance_tracker::subtract_txn_balance(const std::string& wallet_key, const uint256_t &amount, const std::string &txn_hash)
+ZeraStatus balance_tracker::subtract_txn_balance_transfer_allowance(const google::protobuf::RepeatedPtrField<zera_txn::InputTransfers> &transfers, const std::vector<std::string> &wallet_adrs, const std::string &contract_id, const std::string &txn_hash)
 {
     std::lock_guard<std::mutex> lock(mtx);
-    std::string balance_key = "SUB_BALANCE_"+ txn_hash;
+    std::string balance_key = "SUB_BALANCE_" + txn_hash;
     std::string balance_value;
     zera_validator::BalanceTracker balance_tracker;
+    rocksdb::WriteBatch processed_batch;
+
+    if (db_processed_wallets::get_single(balance_key, balance_value))
+    {
+        balance_tracker.ParseFromString(balance_value);
+    }
+
+    auto &wallet_balances = *balance_tracker.mutable_wallet_balances();
+
+    int x = 0;
+    for (auto transfer : transfers)
+    {
+        std::string balance_str;
+        uint256_t amount(transfer.amount());
+        std::string wallet_adr = wallet_adrs[x];
+        std::string wallet_key = wallet_adr + contract_id;
+        if (db_processed_wallets::get_single(wallet_key, balance_str) || db_wallets::get_single(wallet_key, balance_str))
+        {
+            uint256_t balance(balance_str);
+
+            if (balance < amount)
+            {
+                std::string message = "balance_tracker.cpp: subtract_txn_balances: Insufficient wallet balance.";
+                logging::print("wallet: " + base58_encode(wallet_adr), "balance:" + balance.str() + " amount: " + amount.str(), true);
+
+                db_wallets::get_single(wallet_key, balance_str);
+                logging::print("balance:" + balance_str, true);
+
+                db_processed_wallets::get_single(wallet_key, balance_str);
+                logging::print("balance:" + balance_str, true);
+
+                return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INSUFFICIENT_AMOUNT);
+            }
+
+            balance -= amount;
+            processed_batch.Put(wallet_key, balance.str());
+        }
+        else
+        {
+            processed_batch.Put(balance_key, balance_tracker.SerializeAsString());
+            db_processed_wallets::store_batch(processed_batch);
+            std::string message = "balance_tracker.cpp: subtract_txn_balances_allowance: Invalid wallet address. : " + amount.str();
+            return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INVALID_WALLET_ADDRESS);
+        }
+
+        auto wallet_vec = base58_encode(wallet_adr);
+        std::string key(wallet_vec.begin(), wallet_vec.end());
+        key = key + contract_id;
+        if (wallet_balances.find(key) != wallet_balances.end())
+        {
+            // Wallet exists, update the balance
+            uint256_t balance(wallet_balances[key]);
+            balance += amount;
+            wallet_balances[key] = boost::lexical_cast<std::string>(balance);
+        }
+        else
+        {
+            // Wallet does not exist, add it
+            wallet_balances[key] = boost::lexical_cast<std::string>(amount);
+        }
+
+        x++;
+    }
+
+    processed_batch.Put(balance_key, balance_tracker.SerializeAsString());
+    db_processed_wallets::store_batch(processed_batch);
+
+    return ZeraStatus();
+}
+
+ZeraStatus balance_tracker::subtract_txn_balance_transfer(const google::protobuf::RepeatedPtrField<zera_txn::InputTransfers> &transfers, const std::vector<zera_txn::PublicKey> &public_keys, const std::string &contract_id, const std::string &txn_hash)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    std::string balance_key = "SUB_BALANCE_" + txn_hash;
+    std::string balance_value;
+    zera_validator::BalanceTracker balance_tracker;
+    rocksdb::WriteBatch processed_batch;
+
+    if (db_processed_wallets::get_single(balance_key, balance_value))
+    {
+        balance_tracker.ParseFromString(balance_value);
+    }
+
+    auto &wallet_balances = *balance_tracker.mutable_wallet_balances();
+
+    int x = 0;
+    for (auto transfer : transfers)
+    {
+        std::string balance_str;
+        uint256_t amount(transfer.amount());
+        std::string wallet_adr = wallets::generate_wallet(public_keys[x]);
+        std::string wallet_key = wallet_adr + contract_id;
+        if (db_processed_wallets::get_single(wallet_key, balance_str) || db_wallets::get_single(wallet_key, balance_str))
+        {
+            uint256_t balance(balance_str);
+
+            if (balance < amount)
+            {
+                std::string message = "balance_tracker.cpp: subtract_txn_balances: Insufficient wallet balance.";
+                logging::print("wallet: " + base58_encode(wallet_adr), "balance:" + balance.str() + " amount: " + amount.str(), true);
+
+                db_wallets::get_single(wallet_key, balance_str);
+                logging::print("balance:" + balance_str, true);
+
+                db_processed_wallets::get_single(wallet_key, balance_str);
+                logging::print("balance:" + balance_str, true);
+
+                return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INSUFFICIENT_AMOUNT);
+            }
+
+            balance -= amount;
+            processed_batch.Put(wallet_key, balance.str());
+        }
+        else
+        {
+            processed_batch.Put(balance_key, balance_tracker.SerializeAsString());
+            db_processed_wallets::store_batch(processed_batch);
+            std::string message = "balance_tracker.cpp: subtract_txn_balances: Invalid wallet address. : " + amount.str();
+            return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INVALID_WALLET_ADDRESS);
+        }
+
+        auto wallet_vec = base58_encode(wallet_adr);
+        std::string key(wallet_vec.begin(), wallet_vec.end());
+        key = key + contract_id;
+        if (wallet_balances.find(key) != wallet_balances.end())
+        {
+            // Wallet exists, update the balance
+            uint256_t balance(wallet_balances[key]);
+            balance += amount;
+            wallet_balances[key] = boost::lexical_cast<std::string>(balance);
+        }
+        else
+        {
+            // Wallet does not exist, add it
+            wallet_balances[key] = boost::lexical_cast<std::string>(amount);
+        }
+
+        x++;
+    }
+
+    processed_batch.Put(balance_key, balance_tracker.SerializeAsString());
+    db_processed_wallets::store_batch(processed_batch);
+
+    return ZeraStatus();
+}
+
+ZeraStatus balance_tracker::subtract_txn_balance(const std::string &wallet_address, const std::string &contract_id, const uint256_t &amount, const std::string &txn_hash)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    std::string balance_key = "SUB_BALANCE_" + txn_hash;
+    std::string balance_value;
+    zera_validator::BalanceTracker balance_tracker;
+    std::string wallet_key = wallet_address + contract_id;
 
     std::string balance_str;
     if (db_processed_wallets::get_single(wallet_key, balance_str) || db_wallets::get_single(wallet_key, balance_str))
     {
         uint256_t balance(balance_str);
 
-
-        if(balance < amount)
+        if (balance < amount)
         {
             std::string message = "balance_tracker.cpp: subtract_txn_balances: Insufficient wallet balance.";
-            logging::print("amount:", amount.str());
-            logging::print("balance:", balance.str());
             return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INSUFFICIENT_AMOUNT);
         }
 
@@ -178,116 +441,66 @@ ZeraStatus balance_tracker::subtract_txn_balance(const std::string& wallet_key, 
         return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INVALID_WALLET_ADDRESS);
     }
 
-    if(!db_processed_wallets::get_single(balance_key, balance_value))
-    {
-        subtract_txn_balances[txn_hash] = std::map<std::string, uint256_t>();
-    }
-    else
+    if (db_processed_wallets::get_single(balance_key, balance_value))
     {
         balance_tracker.ParseFromString(balance_value);
     }
 
-    int x = 0;
-    bool found = false;
-    for(auto address : balance_tracker.wallet_addresses())
+    // Use the map for efficient lookups and updates
+    auto &wallet_balances = *balance_tracker.mutable_wallet_balances();
+    auto wallet_vec = base58_encode(wallet_address);
+    std::string key(wallet_vec.begin(), wallet_vec.end());
+    key = key + contract_id;
+    if (wallet_balances.find(key) != wallet_balances.end())
     {
-        if(address == wallet_key)
-        {
-            uint256_t balance(balance_tracker.balances(x));
-            balance += amount;
-            balance_tracker.set_balances(x, boost::lexical_cast<std::string>(balance));
-            found = true;
-            break;
-        }
-
-        x++;
+        // Wallet exists, update the balance
+        uint256_t balance(wallet_balances[key]);
+        balance += amount;
+        wallet_balances[key] = boost::lexical_cast<std::string>(balance);
     }
-
-    if(!found)
+    else
     {
-        balance_tracker.add_wallet_addresses(wallet_key);
-        balance_tracker.add_balances(boost::lexical_cast<std::string>(amount));
+        // Wallet does not exist, add it
+        wallet_balances[key] = boost::lexical_cast<std::string>(amount);
     }
 
     db_processed_wallets::store_single(balance_key, balance_tracker.SerializeAsString());
 
-
-    // if (subtract_txn_balances.find(txn_hash) == subtract_txn_balances.end())
-    // {
-    //     subtract_txn_balances[txn_hash] = std::map<std::string, uint256_t>();
-    // }
-
-    // if (subtract_txn_balances[txn_hash].find(wallet_key) == subtract_txn_balances[txn_hash].end())
-    // {
-    //     subtract_txn_balances[txn_hash][wallet_key] = 0;
-    // }
-
-    // subtract_txn_balances[txn_hash][wallet_key] += amount;
-
     return ZeraStatus();
 }
-void balance_tracker::get_txn_balance(const std::string &txn_hash, std::map<std::string, uint256_t> &add_txn_balance, std::map<std::string, uint256_t> &subtract_txn_balance)
+void balance_tracker::get_txn_balance(const std::string &txn_hash, zera_validator::BalanceTracker &add_txn_balance, zera_validator::BalanceTracker &subtract_txn_balance)
 {
-    std::lock_guard<std::mutex> lock(mtx);
-    std::string balance_key = "ADD_BALANCE_"+ txn_hash;
-    std::string sub_balance_key = "SUB_BALANCE_"+ txn_hash;
+    std::string balance_key = "ADD_BALANCE_" + txn_hash;
+    std::string sub_balance_key = "SUB_BALANCE_" + txn_hash;
     std::string balance_value;
     std::string sub_balance_value;
     zera_validator::BalanceTracker sub_balance_tracker;
     zera_validator::BalanceTracker balance_tracker;
 
-    if(!db_processed_wallets::get_single(balance_key, balance_value))
-    {
-        add_txn_balance = std::map<std::string, uint256_t>();
-    }
-    else
+    if (db_processed_wallets::get_single(balance_key, balance_value))
     {
         balance_tracker.ParseFromString(balance_value);
-        for(int x = 0; x < balance_tracker.wallet_addresses_size(); x++)
-        {
-            add_txn_balance[balance_tracker.wallet_addresses(x)] = boost::lexical_cast<uint256_t>(balance_tracker.balances(x));
-        }
+        add_txn_balance.CopyFrom(balance_tracker);
     }
-
-    if(db_processed_wallets::get_single(sub_balance_key, sub_balance_value))
+    if (db_processed_wallets::get_single(sub_balance_key, sub_balance_value))
     {
         sub_balance_tracker.ParseFromString(sub_balance_value);
-        for(int x = 0; x < sub_balance_tracker.wallet_addresses_size(); x++)
-        {
-            subtract_txn_balance[sub_balance_tracker.wallet_addresses(x)] = boost::lexical_cast<uint256_t>(sub_balance_tracker.balances(x));
-        }
+        subtract_txn_balance.CopyFrom(sub_balance_tracker);
     }
-    else
-    {
-        subtract_txn_balance = std::map<std::string, uint256_t>();
-    }
-
-    // if (subtract_txn_balances.find(txn_hash) == subtract_txn_balances.end())
-    // {
-    //     subtract_txn_balance = std::map<std::string, uint256_t>();
-    // }
-    // else
-    // {
-    //     subtract_txn_balance = subtract_txn_balances[txn_hash];
-    // }
 }
 
 void balance_tracker::remove_txn_balance(const std::string &txn_hash)
 {
-    std::lock_guard<std::mutex> lock(mtx);
-    std::string balance_key = "ADD_BALANCE_"+ txn_hash;
-    std::string sub_balance_key = "SUB_BALANCE_"+ txn_hash;
+    std::string balance_key = "ADD_BALANCE_" + txn_hash;
+    std::string sub_balance_key = "SUB_BALANCE_" + txn_hash;
     db_processed_wallets::remove_single(balance_key);
     db_processed_wallets::remove_single(sub_balance_key);
-
-    // add_txn_balances.erase(txn_hash);
-    // subtract_txn_balances.erase(txn_hash);
 }
 
 void balance_tracker::add_balance(const std::string wallet_address, const std::string contract_id, const uint256_t &amount)
 {
     std::string sender_key = wallet_address + contract_id;
-    std::lock_guard<std::mutex> lock(mtx);
+    // std::lock_guard<std::mutex> lock(mtx);
 
     if (block_balances.find(sender_key) == block_balances.end())
     {
@@ -312,7 +525,7 @@ ZeraStatus balance_tracker::remove_balance(const std::string wallet_address, con
 {
 
     std::string sender_key = wallet_address + contract_id;
-    std::lock_guard<std::mutex> lock(mtx);
+    // std::lock_guard<std::mutex> lock(mtx);
 
     if (block_balances.find(sender_key) == block_balances.end())
     {
@@ -342,7 +555,7 @@ ZeraStatus balance_tracker::remove_balance(const std::string wallet_address, con
 void balance_tracker::store_temp_database()
 {
     // if transaction passed add new balance to temp wallet database, for further processing.
-    leveldb::WriteBatch batch;
+    rocksdb::WriteBatch batch;
     for (const auto &sender_pair : block_balances)
     {
         batch.Put(sender_pair.first, boost::lexical_cast<std::string>(sender_pair.second));

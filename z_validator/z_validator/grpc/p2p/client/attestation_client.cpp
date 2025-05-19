@@ -84,6 +84,7 @@ namespace
                 {
                     remove_y.push_back(y);
                     remove_x.push_back(x);
+                    logging::print("Error: Validator with key", base58_pub, " does not exist.", true);
                 }
 
                 support_amount += validator_value;
@@ -274,7 +275,6 @@ void ValidatorNetworkClient::CheckAttestations(std::shared_ptr<zera_validator::B
 
     if (confirmed)
     {
-        logging::print("CONFIRMED");
         std::string my_hash = base58_encode(attestation.block_hash());
 
         if (my_hash != block_support_vec[0].first)
@@ -304,8 +304,8 @@ void ValidatorNetworkClient::SendAttestation(const zera_validator::BlockAttestat
     for (size_t x = 0; x < stubs_.size(); ++x)
     {
         grpc::ClientContext context;
-        // auto deadline = std::chrono::system_clock::now() + std::chrono::seconds(5);
-        // context.set_deadline(deadline);
+        auto deadline = std::chrono::system_clock::now() + std::chrono::seconds(2);
+        context.set_deadline(deadline);
 
         std::vector<zera_validator::DataChunk> chunks;
         chunk_data(request->SerializeAsString(), &chunks);
@@ -413,10 +413,9 @@ void ValidatorNetworkClient::SendAttestation(const zera_validator::BlockAttestat
         }
     }
 
-    ValidatorThreadPool &pool = ValidatorThreadPool::getInstance();
 
     // Enqueue the task into the thread pool
-    pool.enqueueTask([all_data, request_copy]()
+    ValidatorThreadPool::enqueueTask([all_data, request_copy]()
                      { process_response_chunks(all_data, request_copy); });
 
     // Process response_chunk...

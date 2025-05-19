@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "txn.proto";
+
+package zera_api;
+
+option optimize_for = SPEED;
+
+service APIService{
+    rpc Balance(BalanceRequest) returns (BalanceResponse);
+    rpc Nonce(NonceRequest) returns (NonceResponse);
+    rpc ContractFee(ContractFeeRequest) returns (ContractFeeResponse);
+    rpc BaseFee(BaseFeeRequest) returns (BaseFeeResponse);
+    rpc ACETokens(google.protobuf.Empty) returns (ACETokensResponse);
+    rpc Items(ItemRequest) returns (ItemResponse);
+    rpc Denomination(DenominationRequest) returns (DenominationResponse);
+    rpc Database(DatabaseRequest) returns (DatabaseResponse);
+}
+
+
+enum DATABASE_TYPE{
+    UNKNOWN = 0;
+    CONTRACTS = 1;
+    HASH_INDEX = 2;
+    CONTRACT_SUPPLY = 3;
+    SMART_CONTRACTS = 4;
+    VALIDATORS = 5;
+    BLOCKS = 6;
+    HEADERS = 7;
+    TRANSACTIONS = 8;
+    CONTRACT_ITEMS = 9;
+    VALIDATOR_UNBONDING = 10;
+    PROPOSAL_LEDGER = 11;
+    PROPOSALS = 12;
+    CURRENCY_EQUIVALENTS = 13;
+    EXPENSE_RATIO = 14;
+    ATTESTATION = 15;
+    CONFIRMED_BLOCKS = 16;
+}
+//NONCE
+message NonceRequest{
+    bytes wallet_address = 1;
+    bool encoded = 3;
+}
+
+message NonceResponse{
+    uint64 nonce = 1;
+}
+
+//BALANCE
+message BalanceRequest{
+    bytes wallet_address = 1;
+    string contract_id = 2;
+    bool encoded = 3;
+}
+message BalanceResponse{
+    string balance = 1;
+    string denomination = 2;
+    string rate = 3;            //1000000000000000000 = $1.00 (1,000,000,000,000,000,000)
+}
+
+
+//CONTRACT FEE
+message ContractFeeRequest{
+    string contract_id = 1;
+}
+
+message ContractFeeResponse{
+    zera_txn.CONTRACT_FEE_TYPE contract_fee_type = 1; 
+    repeated string allowed_fee_instrument = 2;
+    string fee = 3;
+}
+
+
+//BASE FEE
+message BaseFeeRequest{
+    optional zera_txn.PublicKey public_key = 1;
+    zera_txn.TRANSACTION_TYPE txn_type = 2;
+}
+message BaseFeeResponse{
+    string key_fee = 1;     //1000000000000000000 = $1.00 (1,000,000,000,000,000,000)
+    string byte_fee = 2;    //1000000000000000000 = $1.00 (1,000,000,000,000,000,000)
+}
+
+
+//AUTHORIZED TOKEN
+message ACEToken{
+    string contract_id = 1;
+    string rate = 2;        //1000000000000000000 = $1.00 (1,000,000,000,000,000,000)
+}
+message ACETokensResponse{
+    repeated ACEToken tokens = 1;
+}
+
+
+//ITEM BALANCE
+message Item{
+    string contract_id = 1;
+    string item_id = 2;
+}
+message ItemRequest{
+    bytes wallet_address = 1;
+    bool encoded = 2;
+}
+
+message ItemResponse{
+    repeated Item items = 1;
+}
+
+//DENOMINATION
+message DenominationRequest{
+    string contract_id = 1;
+}
+
+message DenominationResponse{
+    string denomination = 1;
+}
+
+//DATABASE
+message DatabaseRequest{
+    DATABASE_TYPE type = 1;
+    string key = 2;
+}
+
+message DatabaseResponse{
+    string value = 1;
+}

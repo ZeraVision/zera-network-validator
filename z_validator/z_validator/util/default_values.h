@@ -1,7 +1,7 @@
 #pragma once
 
 #include "txn.pb.h"
-#include "leveldb/write_batch.h"
+#include "rocksdb/write_batch.h"
 
 #include "db_base.h"
 

@@ -191,6 +191,8 @@ uint256_t get_txn_fee(const zera_txn::TRANSACTION_TYPE &txn_type)
         return COMPLIANCE_TXN_FEE;
     case zera_txn::TRANSACTION_TYPE::DELEGATED_VOTING_TYPE:
         return DELEGATED_VOTE_TXN_FEE;
+    case zera_txn::TRANSACTION_TYPE::ALLOWANCE_TYPE:
+        return ALLOWANCE_TXN_FEE;
     default:
         return 0;
     }

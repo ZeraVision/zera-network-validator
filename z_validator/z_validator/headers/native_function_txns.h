@@ -38,3 +38,9 @@ WasmEdge_Result CurrentSendAll(void *Data, const WasmEdge_CallingFrameContext *C
 
 WasmEdge_Result CurrentMint(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
                      const WasmEdge_Value *In, WasmEdge_Value *Out);
+
+WasmEdge_Result Vote(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
+                    const WasmEdge_Value *In, WasmEdge_Value *Out);
+
+WasmEdge_Result ExpenseRatio(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
+                    const WasmEdge_Value *In, WasmEdge_Value *Out);

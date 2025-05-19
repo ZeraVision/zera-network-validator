@@ -14,12 +14,12 @@ namespace
         ZeraStatus status = block_process::get_contract(contract_id, contract);
         if (!status.ok())
         {
-            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_cur_equiv.cpp: check_restricted: Contract does not exist.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
+            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_cur_equiv.cpp: check_contract: Contract does not exist. - " + contract_id, zera_txn::TXN_STATUS::INVALID_CONTRACT);
         }
 
         if (contract.type() != zera_txn::CONTRACT_TYPE::TOKEN)
         {
-            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_cur_equiv.cpp: check_restricted: Contract is a token.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
+            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_cur_equiv.cpp: check_contract: Contract is not a token.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
         }
 
         return ZeraStatus();
@@ -81,7 +81,7 @@ namespace
         ZeraStatus status = block_process::get_contract(contract_id, contract);
         if (!status.ok())
         {
-            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_cur_equiv.cpp: check_restricted: Contract does not exist.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
+            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_cur_equiv.cpp: check_restricted: Contract does not exist. - " + contract_id, zera_txn::TXN_STATUS::INVALID_CONTRACT);
         }
 
         std::regex pattern("^\\:.*");

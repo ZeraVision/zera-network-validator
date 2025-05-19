@@ -23,8 +23,6 @@ ZeraStatus supply_tracker::store_supply(const zera_txn::InstrumentContract &cont
 
             backup_max_supply = max_supply[contract_id]; // backup for potential rollback
 
-            logging::print(max_supply[contract_id].circulation());
-
             circulation = boost::lexical_cast<uint256_t>(max_supply[contract_id].circulation());
             circulation += amount; 
             max_supply[contract_id].set_circulation(boost::lexical_cast<std::string>(circulation));
@@ -70,7 +68,7 @@ ZeraStatus supply_tracker::store_supply(const zera_txn::InstrumentContract &cont
 ZeraStatus supply_tracker::supply_to_database()
 {
     std::lock_guard<std::mutex> lock(mtx);
-    leveldb::WriteBatch supply_batch;
+    rocksdb::WriteBatch supply_batch;
     
     for (const auto &supply : max_supply)
     {

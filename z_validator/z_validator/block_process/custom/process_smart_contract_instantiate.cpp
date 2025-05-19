@@ -5,6 +5,8 @@
 #include "smart_contract_service.h"
 #include <any>
 #include "../logging/logging.h"
+#include "validators.h"
+
 namespace
 {
     void storage_fees(const zera_txn::SmartContractInstantiateTXN *txn, const uint256_t &fees, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address)
@@ -54,10 +56,10 @@ namespace
 
         auto wallet_adr = wallets::generate_wallet(txn->base().public_key());
 
-        return balance_tracker::subtract_txn_balance(wallet_adr + contract_id, fee_left, txn->base().hash());
+        return balance_tracker::subtract_txn_balance(wallet_adr, contract_id, fee_left, txn->base().hash());
     }
 
-    ZeraStatus instantiate(const zera_txn::SmartContractInstantiateTXN *txn, const std::string &fee_address, const uint64_t &gas_approved, uint64_t &used_gas)
+    ZeraStatus instantiate(const zera_txn::SmartContractInstantiateTXN *txn, const std::string &fee_address, const uint64_t &gas_approved, uint64_t &used_gas, std::vector<std::string> &txn_hashes)
     {
 
         std::vector<std::any> params_vector;
@@ -124,12 +126,46 @@ namespace
 
         try
         {
-            smart_contract_service::eval(sender_pub_key, sender_wallet_adr, instance_name, db_contract.binary_code(), db_contract.language(), constructor_function_name, params_vector, dependencies, txn->base().hash(), timestamp, block_txns_key, fee_address, smart_contract_wallet, gas_approved, used_gas);
+            smart_contract_service::eval(sender_pub_key, sender_wallet_adr, instance_name, db_contract.binary_code(), db_contract.language(), constructor_function_name, params_vector, dependencies, txn->base().hash(), timestamp, block_txns_key, fee_address, smart_contract_wallet, gas_approved, used_gas, txn_hashes);
 
+            db_sc_temp::remove_all();
             logging::print("[ProcessSmartContractInstantiate] DONE");
         }
         catch (...)
         {
+
+            uint32_t version = ValidatorConfig::get_required_version();
+
+            if (version >= 101001)
+            {
+                for (auto hash : txn_hashes)
+                {
+                    balance_tracker::remove_txn_balance(hash);
+                }
+
+                std::vector<std::string> keys;
+                std::vector<std::string> values;
+
+                db_sc_temp::get_all_data(keys, values);
+
+                int x = 0;
+
+                for (auto key : keys)
+                {
+                    if (values[x].empty())
+                    {
+                        db_smart_contracts::remove_single(key);
+                    }
+                    else
+                    {
+                        db_smart_contracts::store_single(key, values[x]);
+                    }
+                    x++;
+                }
+            }
+
+            db_sc_temp::remove_all();
+
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "Failed to execute txn", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
         }
 
@@ -186,13 +222,14 @@ ZeraStatus block_process::process_txn<zera_txn::SmartContractInstantiateTXN>(con
     std::string sender_wallet_adr = wallets::generate_wallet(txn->base().public_key());
 
     status = gas_limit_calc(fee_taken, txn, gas_approved, fee_left);
+    std::vector<std::string> txn_hashes;
 
     if (status.ok())
     {
 
-        status = instantiate(txn, fee_address, gas_approved, used_gas);
+        status = instantiate(txn, fee_address, gas_approved, used_gas, txn_hashes);
         status_fees.set_gas(used_gas);
-        balance_tracker::add_txn_balance(sender_wallet_adr + txn->base().fee_id(), fee_left, txn->base().hash());
+        balance_tracker::add_txn_balance(sender_wallet_adr, txn->base().fee_id(), fee_left, txn->base().hash());
 
         std::string storage_key = "STORAGE_FEE_" + txn->smart_contract_name() + "_" + std::to_string(txn->instance());
         std::string storage_data;

@@ -3,6 +3,8 @@
 #include "verify_process_txn.h"
 #include <thread>
 
+RateLimiter ClientNetworkServiceImpl::rate_limiter;
+
 grpc::Status ClientNetworkServiceImpl::Mint(grpc::ServerContext *context, const zera_txn::MintTXN *request, google::protobuf::Empty *response)
 {
     return RecieveRequest(context, request, response);
@@ -84,6 +86,11 @@ grpc::Status ClientNetworkServiceImpl::Coin(grpc::ServerContext *context, const 
     return RecieveRequest(context, request, response);
 }
 grpc::Status ClientNetworkServiceImpl::SmartContractInstantiate(grpc::ServerContext *context, const zera_txn::SmartContractInstantiateTXN *request, google::protobuf::Empty *response)
+{
+    return RecieveRequest(context, request, response);
+}
+
+grpc::Status ClientNetworkServiceImpl::Allowance(grpc::ServerContext *context, const zera_txn::AllowanceTXN *request, google::protobuf::Empty *response)
 {
     return RecieveRequest(context, request, response);
 }

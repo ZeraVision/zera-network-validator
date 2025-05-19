@@ -25,11 +25,24 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     libsodium-dev \
     wget \
     git \
-    ccache &&\
+    ccache \
+    zlib1g-dev \
+    libsnappy-dev \
+    liblz4-dev \
+    libzstd-dev && \
     apt-get clean
+
 
 ENV CC="ccache gcc"
 ENV CXX="ccache g++"
+
+# Install RocksDB
+RUN git clone --branch v8.0.0 https://github.com/facebook/rocksdb.git && \
+    cd rocksdb && \
+    make shared_lib && \
+    make install-shared && \
+    ldconfig && \
+    cd .. && rm -rf rocksdb
 
 # Install WasmEdge
 RUN wget https://github.com/WasmEdge/WasmEdge/releases/download/0.11.2/WasmEdge-0.11.2-manylinux2014_x86_64.tar.gz && \
@@ -65,29 +78,28 @@ RUN cp wabt/build/wasm2wat Downloads/wabt/build/wasm2wat
 ENV PATH="/usr/lib/ccache:$PATH"
 
 # Directory for ccache to store its cache
-RUN mkdir -p /volume
-RUN mkdir -p /volume/config
-RUN mkdir -p /volume/ccache
-RUN mkdir -p /volume/blockchain
-RUN mkdir -p /volume/logs
-RUN mkdir -p /volume/blockchain_reorg
-ENV CCACHE_DIR /volume/ccache
+RUN mkdir -p /data
+RUN mkdir -p /data/config
+RUN mkdir -p /data/ccache
+RUN mkdir -p /data/blockchain
+RUN mkdir -p /data/logs
+RUN mkdir -p /data/reorgs
+ENV CCACHE_DIR /data/ccache
 
 
 # Open ports
 EXPOSE 50051
 EXPOSE 50052
+EXPOSE 50053
 
 # Copy files
 COPY . .
 
 #make proto and grpc files
 RUN cd /z_validator/proto && \
-    protoc --grpc_out=/z_validator/headers --cpp_out=/z_validator/headers txn.proto --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` --experimental_allow_proto3_optional && \
-    protoc --grpc_out=/z_validator/headers --cpp_out=/z_validator/headers validator.proto --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` --experimental_allow_proto3_optional && \
-    protoc --grpc_out=/z_validator/headers --cpp_out=/z_validator/headers wallet.proto --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` --experimental_allow_proto3_optional
+    protoc --grpc_out=/z_validator/headers --cpp_out=/z_validator/headers *.proto --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` --experimental_allow_proto3_optional
 
-# Build the validator
+# Build the validator with AddressSanitizer
 RUN cd /z_validator && \
     mkdir build && \
     cd build && \
@@ -96,6 +108,7 @@ RUN cd /z_validator && \
 
 # Copy the zera-validator binary to PATH
 RUN cp z_validator/build/zera-validator /usr/local/bin/
+
 
 # Run the validator
 #CMD ["sh", "-c", "while true; do sleep 1000; done"]

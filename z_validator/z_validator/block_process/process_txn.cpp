@@ -23,13 +23,6 @@ ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, con
         }
     }
 
-    if(base58_encode(wallet_adr) == "G3DDgTnv3eh84bUqbp6MKNJDNZnuh8JAx3LrXth7wny8")
-    {
-        logging::print("wallet_adr:", base58_encode(wallet_adr));
-        nonce_tracker::get_nonce(wallet_adr, wallet_nonce);
-        logging::print("wallet_nonce:", std::to_string(wallet_nonce));
-        std::this_thread::sleep_for(std::chrono::seconds(5));
-    }
     if (!nonce_tracker::get_nonce(wallet_adr, wallet_nonce))
     {
         std::string nonce_str;
@@ -39,8 +32,7 @@ ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, con
             {
                 return ZeraStatus();
             }
-            logging::print("wallet_adr:", base58_encode(wallet_adr));
-            return ZeraStatus(ZeraStatus::Code::NONCE_ERROR, "process_txn.cpp: check_nonce: Did not find nonce in wallet_nonce. " + txn_nonce);
+            return ZeraStatus(ZeraStatus::Code::NONCE_ERROR, "process_txn.cpp: check_nonce: Did not find nonce in wallet_nonce. " + std::to_string(txn_nonce));
         }
         wallet_nonce = std::stoull(nonce_str);
     };
@@ -55,6 +47,39 @@ ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, con
     if (nonce_diff != 1)
     {
         return ZeraStatus(ZeraStatus::Code::NONCE_ERROR, "process_txn.cpp: check_nonce: Nonce is not correct. wallet nonce: " + std::to_string(wallet_nonce) + " txn nonce: " + std::to_string(txn_nonce) + " wallet address: " + base58_encode(wallet_adr));
+    }
+
+    return ZeraStatus();
+}
+
+ZeraStatus block_process::check_nonce_adr(const std::string& wallet_adr , const uint64_t &txn_nonce, const std::string& txn_hash)
+{
+    uint64_t wallet_nonce;
+
+    if (!nonce_tracker::get_nonce(wallet_adr, wallet_nonce))
+    {
+        std::string nonce_str;
+        if (!db_wallet_nonce::get_single(wallet_adr, nonce_str))
+        {
+            if (txn_nonce == 1)
+            {
+                return ZeraStatus();
+            }
+            return ZeraStatus(ZeraStatus::Code::NONCE_ERROR, "process_txn.cpp: check_nonce: ALLOWANCE Did not find nonce in wallet_nonce. " + std::to_string(txn_nonce));
+        }
+        wallet_nonce = std::stoull(nonce_str);
+    };
+
+    uint64_t nonce_diff = txn_nonce - wallet_nonce;
+
+    if (txn_nonce <= wallet_nonce)
+    {
+        return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_txn.cpp: check_nonce: ALLOWANCE Nonce has already been used. wallet nonce: " + std::to_string(wallet_nonce) + " txn nonce: " + std::to_string(txn_nonce) + " wallet address: " + base58_encode(wallet_adr));
+    }
+
+    if (nonce_diff != 1)
+    {
+        return ZeraStatus(ZeraStatus::Code::NONCE_ERROR, "process_txn.cpp: check_nonce: ALLOWANCE Nonce is not correct. wallet nonce: " + std::to_string(wallet_nonce) + " txn nonce: " + std::to_string(txn_nonce) + " wallet address: " + base58_encode(wallet_adr));
     }
 
     return ZeraStatus();
@@ -89,6 +114,7 @@ template ZeraStatus block_process::restricted_check<zera_txn::GovernanceVote>(co
 template ZeraStatus block_process::restricted_check<zera_txn::ComplianceTXN>(const zera_txn::ComplianceTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type);
 template ZeraStatus block_process::restricted_check<zera_txn::RevokeTXN>(const zera_txn::RevokeTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type);
 template ZeraStatus block_process::restricted_check<zera_txn::BurnSBTTXN>(const zera_txn::BurnSBTTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type);
+template ZeraStatus block_process::restricted_check<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type);
 
 template <>
 ZeraStatus block_process::restricted_check<zera_txn::SelfCurrencyEquiv>(const zera_txn::SelfCurrencyEquiv *txn, const zera_txn::TRANSACTION_TYPE &txn_type)
@@ -221,3 +247,4 @@ template ZeraStatus block_process::process_txn<zera_txn::QuashTXN>(const zera_tx
 template ZeraStatus block_process::process_txn<zera_txn::RevokeTXN>(const zera_txn::RevokeTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
 template ZeraStatus block_process::process_txn<zera_txn::ContractUpdateTXN>(const zera_txn::ContractUpdateTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
 template ZeraStatus block_process::process_txn<zera_txn::BurnSBTTXN>(const zera_txn::BurnSBTTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);

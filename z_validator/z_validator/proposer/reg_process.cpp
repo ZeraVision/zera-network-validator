@@ -192,7 +192,7 @@ ZeraStatus proposing::process_txns(const std::vector<std::string> &values, const
         }
     }
     // remove txns from pending database
-    leveldb::WriteBatch remove_txns;
+    rocksdb::WriteBatch remove_txns;
     for (auto key : remove_keys)
     {
         remove_txns.Delete(key);

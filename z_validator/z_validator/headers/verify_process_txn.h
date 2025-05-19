@@ -7,7 +7,7 @@
 #include <type_traits>
 
 // Third-party library headers
-#include <leveldb/write_batch.h>
+#include <rocksdb/write_batch.h>
 #include <chrono>
 
 // Project-specific headers
@@ -54,7 +54,6 @@ namespace
 }
 class verify_txns
 {
-    // TODO - add rate limit to prevent spamming
 public:
     template <typename TXType>
     static ZeraStatus verify_txn(const TXType *txn)
@@ -116,14 +115,14 @@ private:
 namespace vp_contract
 {
     ZeraStatus verify_contract(const zera_txn::InstrumentContract *txn);
-    void process_contract(const zera_txn::InstrumentContract &txn, leveldb::WriteBatch *wallet_batch);
+    void process_contract(const zera_txn::InstrumentContract &txn, rocksdb::WriteBatch *wallet_batch);
     ZeraStatus store_txn(const zera_txn::InstrumentContract *txn);
 }
 
 namespace vp_broadcast
 {
     ZeraStatus verify_broadcast_block(const zera_validator::Block *block);
-    int write_block(zera_validator::Block *block, leveldb::WriteBatch &wallet_batch);
+    int write_block(zera_validator::Block *block, rocksdb::WriteBatch &wallet_batch);
 }
 
 

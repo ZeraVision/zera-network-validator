@@ -6,9 +6,29 @@
 #include "../block_process.h"
 #include "wallets.h"
 #include "utils.h"
+#include "../../logging/logging.h"
+#include "validators.h"
 
 namespace
 {
+    bool compare_permissions(const zera_txn::RestrictedKey& original, const zera_txn::RestrictedKey& new_key)
+    {
+        return original.time_delay() == new_key.time_delay() && 
+               original.global() == new_key.global() &&
+               original.update_contract() == new_key.update_contract() &&
+               original.transfer() == new_key.transfer() &&
+               original.quash() == new_key.quash() &&
+               original.mint() == new_key.mint() &&
+               original.vote() == new_key.vote() &&
+               original.propose() == new_key.propose() &&
+               original.compliance() == new_key.compliance() &&
+               original.expense_ratio() == new_key.expense_ratio() &&
+               original.cur_equiv() == new_key.cur_equiv() &&
+               original.revoke() == new_key.revoke() &&
+               original.key_weight() == new_key.key_weight();
+
+
+    }
     ZeraStatus check_restricted_duplicate(const zera_txn::ContractUpdateTXN *txn)
     {
         std::set<std::string> restricted_keys;
@@ -29,7 +49,7 @@ namespace
 
         return ZeraStatus();
     }
-    
+
     ZeraStatus check_days_stages(const zera_txn::Governance &governance)
     {
         int cycle_length = governance.voting_period();
@@ -108,7 +128,7 @@ namespace
         }
         else
         {
-            
+
             if (cycle_length > calc_length_months && governance.stage_length().at(last_index).length() != 0)
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: check_months_stages: Governance stages is larger than cycle length", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
@@ -151,7 +171,7 @@ namespace
             }
         }
 
-        if (governance.type() == zera_txn::GOVERNANCE_TYPE::STAGED && (governance.stage_length_size() <= 1 || governance.stage_length_size() > 99))
+        if (governance.type() == zera_txn::GOVERNANCE_TYPE::STAGED && (governance.stage_length_size() < 1 || governance.stage_length_size() > 99))
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance type is staged but less than 1 stage lengths are provided.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
@@ -210,6 +230,7 @@ template <>
 ZeraStatus block_process::check_parameters<zera_txn::ContractUpdateTXN>(const zera_txn::ContractUpdateTXN *txn, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address)
 {
 
+    logging::log("process_update_contract.cpp: check_parameters: ContractUpdateTXN");
     std::string base_pub_key = wallets::get_public_key_string(txn->base().public_key());
     HashType type = wallets::get_wallet_type(base_pub_key);
     if (wallets::get_wallet_type(base_pub_key) != HashType::wallet_r && wallets::get_wallet_type(base_pub_key) != HashType::wallet_g)
@@ -217,9 +238,12 @@ ZeraStatus block_process::check_parameters<zera_txn::ContractUpdateTXN>(const ze
         return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: sender key is not restricted", zera_txn::TXN_STATUS::INVALID_AUTH_KEY);
     }
 
-    if (type == HashType::wallet_g && base_pub_key != "gov_" + txn->contract_id())
+    if (ValidatorConfig::get_required_version() < 101001)
     {
-        return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: Governance key does not match contract id.", zera_txn::TXN_STATUS::INVALID_AUTH_KEY);
+        if (type == HashType::wallet_g && base_pub_key != "gov_" + txn->contract_id())
+        {
+            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: Governance key does not match contract id.", zera_txn::TXN_STATUS::INVALID_AUTH_KEY);
+        }
     }
 
     std::string contract_data;
@@ -269,22 +293,16 @@ ZeraStatus block_process::check_parameters<zera_txn::ContractUpdateTXN>(const ze
     }
 
     std::regex pattern("^\\$[A-Z]{3,20}\\+\\d{4}$");
-
+    
     for (auto key : txn->restricted_keys())
     {
 
         std::string pub_key = wallets::get_public_key_string(key.public_key());
         HashType type = wallets::get_wallet_type(pub_key);
-        if (type != HashType::wallet_r && type != HashType::wallet_g && type != HashType::wallet_sc && !std::regex_match(pub_key, pattern))
+        if ((type != HashType::wallet_r && type != HashType::wallet_g && type != HashType::wallet_sc && !std::regex_match(pub_key, pattern)) || pub_key == txn->contract_id())
         {
+            logging::print(pub_key, true);
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Non restricted key in list.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
-        }
-
-        std::string gov_key = "gov_" + txn->contract_id();
-
-        if (type == HashType::wallet_g && pub_key != gov_key)
-        {
-            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance key is not allowed for non-token contracts.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
 
         if (key.global())
@@ -304,34 +322,82 @@ ZeraStatus block_process::check_parameters<zera_txn::ContractUpdateTXN>(const ze
 
         added_keys.push_back(key);
     }
-
-    for (auto key : contract.restricted_keys())
+    for (auto added_key : added_keys)
     {
-        std::string key_str = wallets::get_public_key_string(key.public_key());
-        bool removed = true;
+        std::string added_key_str = wallets::get_public_key_string(added_key.public_key());
+        bool new_key = true;
 
-        for (auto added_key : added_keys)
+        for (auto key : contract.restricted_keys())
         {
-            std::string added_key_str = wallets::get_public_key_string(added_key.public_key());
-
-            if (added_key_str == key_str)
+            std::string key_str = wallets::get_public_key_string(key.public_key());
+            if(added_key_str == key_str)
             {
-                removed = false;
+                new_key = false;
                 break;
             }
         }
 
-        if (removed)
+        if(new_key)
         {
-            std::string txn_pub_key = wallets::get_public_key_string(txn->base().public_key());
-
-            if (txn_pub_key == key_str)
+            if(added_key.key_weight() < key_weight)
             {
-                continue;
+                return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: New restricted key key_weight cannot be lower than sender key.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
             }
-            else if (key.key_weight() <= key_weight)
+        }
+    }
+    if (txn->restricted_keys_size() > 0)
+    {
+        std::string txn_pub_key = wallets::get_public_key_string(txn->base().public_key());
+
+        for (auto key : contract.restricted_keys())
+        {
+            std::string key_str = wallets::get_public_key_string(key.public_key());
+            logging::print("original", key_str, true);
+            logging::print(std::to_string(key.key_weight()));
+            bool removed = true;
+
+            for (auto added_key : added_keys)
             {
-                return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: Restricted key does not have permission to remove restricted_key.", zera_txn::TXN_STATUS::KEY_WEIGHT_TOO_LOW);
+                std::string added_key_str = wallets::get_public_key_string(added_key.public_key());
+                logging::print("new", added_key_str, true);
+                logging::print(std::to_string(added_key.key_weight()));
+                if (added_key_str == key_str)
+                {
+                    if(added_key.key_weight() != key.key_weight())
+                    {
+                        if(key.key_weight() <= key_weight || added_key.key_weight() < key_weight)
+                        {
+                            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: Updated restricted key key_weight cannot be lower than sender key", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
+                        }
+                    }
+                    else
+                    {
+                        if(added_key_str == txn_pub_key && added_key.key_weight() < key_weight)
+                        {
+                            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: Cannot make your own key weight lower.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
+                        }
+                        else if(added_key_str != txn_pub_key && key.key_weight() <= key_weight && !compare_permissions(key, added_key))
+                        {
+                            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: Updated restricted key permissions of the <= key_weight cannot be different than original key", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
+                        }
+
+                    }
+                    
+                    removed = false;
+                    break;
+                }
+            }
+
+            if (removed)
+            {
+                if (txn_pub_key == key_str)
+                {
+                    continue;
+                }
+                else if (key.key_weight() <= key_weight)
+                {
+                    return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_update_contract.cpp: check_parameters: Restricted key does not have permission to remove restricted_key.", zera_txn::TXN_STATUS::KEY_WEIGHT_TOO_LOW);
+                }
             }
         }
     }

@@ -1,5 +1,5 @@
 #include "db_base.h"
-#include <leveldb/write_batch.h>
+#include <rocksdb/write_batch.h>
 #include "hex_conversion.h"
 
 void open_dbs()
@@ -21,7 +21,7 @@ void open_dbs()
     db_validator_unbond::open_db();
     db_proposal_ledger::open_db();
     db_proposals::open_db();
-    db_votes::open_db();
+    db_status_fee::open_db();
     db_process_ledger::open_db();
     db_process_adaptive_ledger::open_db();
     db_currency_equiv::open_db();
@@ -54,6 +54,9 @@ void open_dbs()
     db_validator_archive::open_db();
     db_quash_ledger_lookup::open_db();
     db_system::open_db();
+    db_gossip::open_db();
+    db_sc_temp::open_db();
+    db_allowance::open_db();
 
     std::string confirmed_height;
     if (!db_confirmed_blocks::get_single(CONFIRMED_BLOCK_LATEST, confirmed_height))
@@ -70,13 +73,16 @@ void open_dbs()
     db_fast_quorum::remove_all();
     db_transactions::remove_all();
     db_wallets_temp::remove_all();
+    db_gossip::remove_all();
+    db_sc_temp::remove_all();
+    
 
     std::vector<std::string> keys;
     std::vector<std::string> values;
     db_wallet_nonce::get_all_data(keys, values);
 
     int x = 0;
-    leveldb::WriteBatch batch;
+    rocksdb::WriteBatch batch;
     while (x < keys.size())
     {
         batch.Put(keys.at(x), values.at(x));
@@ -104,7 +110,7 @@ void close_dbs()
     db_validator_unbond::close_db();
     db_proposal_ledger::close_db();
     db_proposals::close_db();
-    db_votes::close_db();
+    db_status_fee::close_db();
     db_process_ledger::close_db();
     db_process_adaptive_ledger::close_db();
     db_currency_equiv::close_db();
@@ -137,4 +143,7 @@ void close_dbs()
     db_validator_archive::close_db();
     db_quash_ledger_lookup::close_db();
     db_system::close_db();
+    db_gossip::close_db();
+    db_sc_temp::close_db();
+    db_allowance::close_db();
 }

@@ -64,7 +64,7 @@ namespace
     {
         google::protobuf::Timestamp *end_ts = stored_proposal.mutable_end_date();
         google::protobuf::Timestamp *ts = stored_proposal.mutable_start_date();
-
+        
         if(proposal.start_timestamp().seconds() < block_time)
         {
             ts->set_seconds(block_time);
@@ -73,7 +73,6 @@ namespace
         {
             ts->set_seconds(proposal.start_timestamp().seconds());
         }
-
 
         int days = 0;
         int months = 0;
@@ -94,13 +93,14 @@ namespace
         end_ts->set_seconds(time);
 
         db_process_adaptive_ledger::store_single(proposal.base().hash(), end_ts->SerializeAsString());
+
     }
 
 }
 
 void txn_batch::batch_proposals(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, const uint64_t &block_time)
 {
-    leveldb::WriteBatch proposal_batch;
+    rocksdb::WriteBatch proposal_batch;
 
     for (auto proposal : txns.governance_proposals())
     {

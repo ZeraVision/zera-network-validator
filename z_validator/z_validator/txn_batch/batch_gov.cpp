@@ -173,12 +173,19 @@ namespace
             zera_txn::RequiredVersion txn;
             txn.ParseFromString(gov_txn.serialized_txn());
             verify_txns::store_wrapper(&txn, wrapper);
-
             break;
         }
         case zera_txn::TRANSACTION_TYPE::QUASH_TYPE:
         {
             zera_txn::QuashTXN txn;
+            txn.ParseFromString(gov_txn.serialized_txn());
+            verify_txns::store_wrapper(&txn, wrapper);
+
+            break;
+        }
+        case zera_txn::TRANSACTION_TYPE::ALLOWANCE_TYPE:
+        {
+            zera_txn::AllowanceTXN txn;
             txn.ParseFromString(gov_txn.serialized_txn());
             verify_txns::store_wrapper(&txn, wrapper);
 
@@ -258,7 +265,7 @@ namespace
         }
         return delete_map;
     }
-    void processDeleteMap(const std::map<std::string, std::map<std::string, std::vector<std::string>>> &delete_map, leveldb::WriteBatch &recipient_batch)
+    void processDeleteMap(const std::map<std::string, std::map<std::string, std::vector<std::string>>> &delete_map, rocksdb::WriteBatch &recipient_batch)
     {
         recipient_batch.Clear();
 
@@ -499,7 +506,7 @@ namespace
 }
 void txn_batch::batch_votes(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
-    leveldb::WriteBatch delegate_batch;
+    rocksdb::WriteBatch delegate_batch;
     for (auto client_vote : txns.governance_votes())
     {
         if (txn_passed.at(client_vote.base().hash()))
@@ -553,8 +560,8 @@ void txn_batch::batch_votes(const zera_txn::TXNS &txns, const std::map<std::stri
 
 void txn_batch::batch_proposal_results(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
-    leveldb::WriteBatch proposal_batch;
-    leveldb::WriteBatch adaptive_ledger_batch;
+    rocksdb::WriteBatch proposal_batch;
+    rocksdb::WriteBatch adaptive_ledger_batch;
 
     std::vector<std::string> contract_ids;
     std::vector<zera_txn::ProposalResult> staged_results;
@@ -687,8 +694,8 @@ void txn_batch::batch_proposal_results(const zera_txn::TXNS &txns, const std::ma
 
 void txn_batch::batch_delegated_voting(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
-    leveldb::WriteBatch delegatee_batch;
-    leveldb::WriteBatch recipient_batch;
+    rocksdb::WriteBatch delegatee_batch;
+    rocksdb::WriteBatch recipient_batch;
 
     zera_validator::Delegatees original_delegatees;
     std::vector<std::string> delegatee_keys;

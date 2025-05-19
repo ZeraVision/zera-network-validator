@@ -105,7 +105,7 @@ bool store_self(zera_txn::Validator *validator)
         std::string validator_pub = wallets::get_public_key_string(validator->public_key());
         db_validator_lookup::store_single(ValidatorConfig::get_public_key(), ValidatorConfig::get_gen_public_key());
         std::string base58_pub = base58_encode_public_key(ValidatorConfig::get_gen_public_key());
-        logging::print("Store Self:", base58_pub, false);
+        logging::print("Store Self:", base58_pub, true);
         db_validators::store_single(ValidatorConfig::get_gen_public_key(), validator->SerializeAsString());
     }
 
@@ -113,21 +113,7 @@ bool store_self(zera_txn::Validator *validator)
 
     return true;
 }
-int get_seed(std::string &seed)
-{
-    std::vector<std::string> seeds;
 
-    if (!read_validator_seeds(seeds, SEED_DIRECTORY))
-        return 0;
-
-    int size = static_cast<int>(seeds.size());
-
-    if (size <= 0)
-        return 0;
-
-    seed = random_seed(seeds);
-    return 1;
-}
 void get_validator_registration(zera_txn::Validator *self, zera_txn::ValidatorRegistration *registration_request)
 {
     uint64_t nonce = 0;
@@ -139,7 +125,6 @@ void get_validator_registration(zera_txn::Validator *self, zera_txn::ValidatorRe
     }
     else
     {
-        
         std::string nonce_str;
         if (db_wallet_nonce::get_single(wallets::generate_wallet_single(ValidatorConfig::get_public_key()), nonce_str))
         {
@@ -155,10 +140,12 @@ void get_validator_registration(zera_txn::Validator *self, zera_txn::ValidatorRe
     zera_txn::Validator *validator = registration_request->mutable_validator();
     validator->CopyFrom(*self);
 
+    logging::print("Validator created - nonce:", std::to_string(nonce), true);
     //set the base
     registration_request->mutable_base()->set_fee_amount(std::to_string(VALIDATOR_REGISTRATION_TXN_FEE));
     registration_request->mutable_base()->set_fee_id(ZERA_SYMBOL);
     registration_request->mutable_base()->mutable_public_key()->set_single(ValidatorConfig::get_public_key());
+
     registration_request->mutable_base()->set_nonce(nonce);
 
     registration_request->set_register_(true);

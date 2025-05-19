@@ -28,7 +28,7 @@ const char *const db_process_ledger_tag::DB_NAME = "proposal_ledger";
 const char *const db_process_adaptive_ledger_tag::DB_NAME = "process_adaptive_ledger";
 const char *const db_proposal_ledger_tag::DB_NAME = "process_ledger";
 const char *const db_proposals_tag::DB_NAME = "proposals";
-const char *const db_votes_tag::DB_NAME = "votes";
+const char *const db_status_fee_tag::DB_NAME = "votes";
 const char *const db_currency_equiv_tag::DB_NAME = "currency_equiv";
 const char *const db_expense_ratio_tag::DB_NAME = "expense_ratio";
 const char *const db_foundation_tag::DB_NAME = "foundation";
@@ -59,13 +59,14 @@ const char *const db_confirmed_blocks_tag::DB_NAME = "confirmed_blocks";
 const char *const db_attestation_ledger_tag::DB_NAME = "attestation_ledger";
 const char *const db_validator_archive_tag::DB_NAME = "validator_archive";
 const char *const db_system_tag::DB_NAME = "system";
+const char *const db_gossip_tag::DB_NAME = "gossip";
+const char *const db_sc_temp_tag::DB_NAME = "sc_temp";
+const char *const db_allowance_tag::DB_NAME = "allowance";
 
 template <typename T>
-leveldb::DB *db_base<T>::db = nullptr;
+rocksdb::DB *db_base<T>::db = nullptr;
 template <typename T>
-leveldb::Options db_base<T>::options;
-template <typename T>
-leveldb::Status db_base<T>::status;
+rocksdb::Options db_base<T>::options;
 template <typename T>
 std::mutex db_base<T>::db_mutex;
 
@@ -73,7 +74,7 @@ template <typename T>
 int db_base<T>::open_db()
 {
     std::string database = DB_DIRECTORY + std::string(T::DB_NAME);
-    return database::open_db(db, options, status, database);
+    return database::open_db(db, options, database);
 }
 template int db_base<db_contracts_tag>::open_db();
 template int db_base<db_hash_index_tag>::open_db();
@@ -93,7 +94,7 @@ template int db_base<db_validator_unbond_tag>::open_db();
 template int db_base<db_process_ledger_tag>::open_db();
 template int db_base<db_proposal_ledger_tag>::open_db();
 template int db_base<db_proposals_tag>::open_db();
-template int db_base<db_votes_tag>::open_db();
+template int db_base<db_status_fee_tag>::open_db();
 template int db_base<db_process_adaptive_ledger_tag>::open_db();
 template int db_base<db_currency_equiv_tag>::open_db();
 template int db_base<db_expense_ratio_tag>::open_db();
@@ -125,6 +126,9 @@ template int db_base<db_attestation_ledger_tag>::open_db();
 template int db_base<db_validator_archive_tag>::open_db();
 template int db_base<db_quash_ledger_lookup_tag>::open_db();
 template int db_base<db_system_tag>::open_db();
+template int db_base<db_gossip_tag>::open_db();
+template int db_base<db_sc_temp_tag>::open_db();
+template int db_base<db_allowance_tag>::open_db();
 
 template <typename T>
 void db_base<T>::close_db()
@@ -149,7 +153,7 @@ template void db_base<db_validator_unbond_tag>::close_db();
 template void db_base<db_process_ledger_tag>::close_db();
 template void db_base<db_proposal_ledger_tag>::close_db();
 template void db_base<db_proposals_tag>::close_db();
-template void db_base<db_votes_tag>::close_db();
+template void db_base<db_status_fee_tag>::close_db();
 template void db_base<db_process_adaptive_ledger_tag>::close_db();
 template void db_base<db_currency_equiv_tag>::close_db();
 template void db_base<db_expense_ratio_tag>::close_db();
@@ -181,12 +185,14 @@ template void db_base<db_attestation_ledger_tag>::close_db();
 template void db_base<db_validator_archive_tag>::close_db();
 template void db_base<db_quash_ledger_lookup_tag>::close_db();
 template void db_base<db_system_tag>::close_db();
+template void db_base<db_gossip_tag>::close_db();
+template void db_base<db_sc_temp_tag>::close_db();
+template void db_base<db_allowance_tag>::close_db();
 
 template <typename T>
 int db_base<T>::get_single(const std::string &key, std::string &value)
 {
-    std::lock_guard<std::mutex> lock(db_mutex);
-    return database::get_data(db, status, key, value);
+    return database::get_data(db, key, value);
 }
 template int db_base<db_contracts_tag>::get_single(const std::string &key, std::string &value);
 template int db_base<db_hash_index_tag>::get_single(const std::string &key, std::string &value);
@@ -206,7 +212,7 @@ template int db_base<db_validator_unbond_tag>::get_single(const std::string &key
 template int db_base<db_process_ledger_tag>::get_single(const std::string &key, std::string &value);
 template int db_base<db_proposal_ledger_tag>::get_single(const std::string &key, std::string &value);
 template int db_base<db_proposals_tag>::get_single(const std::string &key, std::string &value);
-template int db_base<db_votes_tag>::get_single(const std::string &key, std::string &value);
+template int db_base<db_status_fee_tag>::get_single(const std::string &key, std::string &value);
 template int db_base<db_process_adaptive_ledger_tag>::get_single(const std::string &key, std::string &value);
 template int db_base<db_currency_equiv_tag>::get_single(const std::string &key, std::string &value);
 template int db_base<db_expense_ratio_tag>::get_single(const std::string &key, std::string &value);
@@ -238,13 +244,15 @@ template int db_base<db_attestation_ledger_tag>::get_single(const std::string &k
 template int db_base<db_validator_archive_tag>::get_single(const std::string &key, std::string &value);
 template int db_base<db_quash_ledger_lookup_tag>::get_single(const std::string &key, std::string &value);
 template int db_base<db_system_tag>::get_single(const std::string &key, std::string &value);
+template int db_base<db_gossip_tag>::get_single(const std::string &key, std::string &value);
+template int db_base<db_sc_temp_tag>::get_single(const std::string &key, std::string &value);
+template int db_base<db_allowance_tag>::get_single(const std::string &key, std::string &value);
 
 template <typename T>
 int db_base<T>::exist(const std::string &key)
 {
-    std::lock_guard<std::mutex> lock(db_mutex);
     std::string value;
-    return database::get_data(db, status, key, value);
+    return database::get_data(db, key, value);
 }
 template int db_base<db_contracts_tag>::exist(const std::string &key);
 template int db_base<db_hash_index_tag>::exist(const std::string &key);
@@ -264,7 +272,7 @@ template int db_base<db_validator_unbond_tag>::exist(const std::string &key);
 template int db_base<db_process_ledger_tag>::exist(const std::string &key);
 template int db_base<db_proposal_ledger_tag>::exist(const std::string &key);
 template int db_base<db_proposals_tag>::exist(const std::string &key);
-template int db_base<db_votes_tag>::exist(const std::string &key);
+template int db_base<db_status_fee_tag>::exist(const std::string &key);
 template int db_base<db_process_adaptive_ledger_tag>::exist(const std::string &key);
 template int db_base<db_currency_equiv_tag>::exist(const std::string &key);
 template int db_base<db_expense_ratio_tag>::exist(const std::string &key);
@@ -296,12 +304,14 @@ template int db_base<db_attestation_ledger_tag>::exist(const std::string &key);
 template int db_base<db_validator_archive_tag>::exist(const std::string &key);
 template int db_base<db_quash_ledger_lookup_tag>::exist(const std::string &key);
 template int db_base<db_system_tag>::exist(const std::string &key);
+template int db_base<db_gossip_tag>::exist(const std::string &key);
+template int db_base<db_sc_temp_tag>::exist(const std::string &key);
+template int db_base<db_allowance_tag>::exist(const std::string &key);
 
 template <typename T>
 int db_base<T>::store_single(const std::string &key, const std::string &value)
 {
-    std::lock_guard<std::mutex> lock(db_mutex);
-    return database::store_single(db, status, key, value);
+    return database::store_single(db, key, value);
 }
 template int db_base<db_contracts_tag>::store_single(const std::string &key, const std::string &value);
 template int db_base<db_hash_index_tag>::store_single(const std::string &key, const std::string &value);
@@ -321,7 +331,7 @@ template int db_base<db_validator_unbond_tag>::store_single(const std::string &k
 template int db_base<db_process_ledger_tag>::store_single(const std::string &key, const std::string &value);
 template int db_base<db_proposal_ledger_tag>::store_single(const std::string &key, const std::string &value);
 template int db_base<db_proposals_tag>::store_single(const std::string &key, const std::string &value);
-template int db_base<db_votes_tag>::store_single(const std::string &key, const std::string &value);
+template int db_base<db_status_fee_tag>::store_single(const std::string &key, const std::string &value);
 template int db_base<db_process_adaptive_ledger_tag>::store_single(const std::string &key, const std::string &value);
 template int db_base<db_currency_equiv_tag>::store_single(const std::string &key, const std::string &value);
 template int db_base<db_expense_ratio_tag>::store_single(const std::string &key, const std::string &value);
@@ -353,69 +363,73 @@ template int db_base<db_attestation_ledger_tag>::store_single(const std::string 
 template int db_base<db_validator_archive_tag>::store_single(const std::string &key, const std::string &value);
 template int db_base<db_quash_ledger_lookup_tag>::store_single(const std::string &key, const std::string &value);
 template int db_base<db_system_tag>::store_single(const std::string &key, const std::string &value);
+template int db_base<db_gossip_tag>::store_single(const std::string &key, const std::string &value);
+template int db_base<db_sc_temp_tag>::store_single(const std::string &key, const std::string &value);
+template int db_base<db_allowance_tag>::store_single(const std::string &key, const std::string &value);
 
 template <typename T>
-int db_base<T>::store_batch(leveldb::WriteBatch &batch)
+int db_base<T>::store_batch(rocksdb::WriteBatch &batch)
 {
-    std::lock_guard<std::mutex> lock(db_mutex);
-    return database::store_batch(db, status, batch);
+    return database::store_batch(db, batch);
 }
-template int db_base<db_contracts_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_hash_index_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_wallets_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_contract_supply_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_wallets_temp_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_smart_contracts_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_block_txns_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_restricted_wallets_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_validators_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_blocks_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_headers_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_transactions_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_contract_items_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_validator_lookup_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_validator_unbond_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_proposal_ledger_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_process_ledger_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_proposals_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_votes_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_process_adaptive_ledger_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_currency_equiv_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_expense_ratio_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_foundation_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_proposal_wallets_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_proposals_temp_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_delegate_vote_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_delegate_recipient_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_delegate_wallets_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_timed_txns_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_quash_ledger_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_quash_lookup_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_wallet_lookup_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_fast_quorum_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_duplicate_txn_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_delegatees_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_voted_proposals_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_wallet_nonce_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_processed_txns_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_processed_wallets_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_preprocessed_nonce_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_validate_txns_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_gov_txn_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_sc_transactions_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_contract_price_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_attestation_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_confirmed_blocks_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_attestation_ledger_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_validator_archive_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_quash_ledger_lookup_tag>::store_batch(leveldb::WriteBatch &batch);
-template int db_base<db_system_tag>::store_batch(leveldb::WriteBatch &batch);
+template int db_base<db_contracts_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_hash_index_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_wallets_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_contract_supply_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_wallets_temp_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_smart_contracts_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_block_txns_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_restricted_wallets_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_validators_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_blocks_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_headers_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_transactions_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_contract_items_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_validator_lookup_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_validator_unbond_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_proposal_ledger_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_process_ledger_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_proposals_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_status_fee_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_process_adaptive_ledger_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_currency_equiv_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_expense_ratio_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_foundation_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_proposal_wallets_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_proposals_temp_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_delegate_vote_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_delegate_recipient_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_delegate_wallets_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_timed_txns_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_quash_ledger_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_quash_lookup_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_wallet_lookup_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_fast_quorum_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_duplicate_txn_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_delegatees_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_voted_proposals_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_wallet_nonce_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_processed_txns_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_processed_wallets_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_preprocessed_nonce_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_validate_txns_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_gov_txn_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_sc_transactions_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_contract_price_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_attestation_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_confirmed_blocks_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_attestation_ledger_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_validator_archive_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_quash_ledger_lookup_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_system_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_gossip_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_sc_temp_tag>::store_batch(rocksdb::WriteBatch &batch);
+template int db_base<db_allowance_tag>::store_batch(rocksdb::WriteBatch &batch);
 
 template <typename T>
 int db_base<T>::remove_single(const std::string &key)
 {
-    std::lock_guard<std::mutex> lock(db_mutex);
-    return database::remove_single(db, status, key);
+    return database::remove_single(db, key);
 }
 template int db_base<db_contracts_tag>::remove_single(const std::string &key);
 template int db_base<db_hash_index_tag>::remove_single(const std::string &key);
@@ -435,7 +449,7 @@ template int db_base<db_validator_unbond_tag>::remove_single(const std::string &
 template int db_base<db_proposal_ledger_tag>::remove_single(const std::string &key);
 template int db_base<db_process_ledger_tag>::remove_single(const std::string &key);
 template int db_base<db_proposals_tag>::remove_single(const std::string &key);
-template int db_base<db_votes_tag>::remove_single(const std::string &key);
+template int db_base<db_status_fee_tag>::remove_single(const std::string &key);
 template int db_base<db_process_adaptive_ledger_tag>::remove_single(const std::string &key);
 template int db_base<db_currency_equiv_tag>::remove_single(const std::string &key);
 template int db_base<db_expense_ratio_tag>::remove_single(const std::string &key);
@@ -467,12 +481,13 @@ template int db_base<db_attestation_ledger_tag>::remove_single(const std::string
 template int db_base<db_validator_archive_tag>::remove_single(const std::string &key);
 template int db_base<db_quash_ledger_lookup_tag>::remove_single(const std::string &key);
 template int db_base<db_system_tag>::remove_single(const std::string &key);
+template int db_base<db_gossip_tag>::remove_single(const std::string &key);
+template int db_base<db_sc_temp_tag>::remove_single(const std::string &key);
+template int db_base<db_allowance_tag>::remove_single(const std::string &key);
 
 template <typename T>
 int db_base<T>::get_all_data(std::vector<std::string> &keys, std::vector<std::string> &values)
 {
-    std::lock_guard<std::mutex> lock(db_mutex);
-
     if (!database::get_all_data(db, keys, values))
     {
         return 0;
@@ -497,7 +512,7 @@ template int db_base<db_validator_unbond_tag>::get_all_data(std::vector<std::str
 template int db_base<db_proposal_ledger_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
 template int db_base<db_process_ledger_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
 template int db_base<db_proposals_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
-template int db_base<db_votes_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
+template int db_base<db_status_fee_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
 template int db_base<db_process_adaptive_ledger_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
 template int db_base<db_currency_equiv_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
 template int db_base<db_expense_ratio_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
@@ -528,14 +543,18 @@ template int db_base<db_confirmed_blocks_tag>::get_all_data(std::vector<std::str
 template int db_base<db_attestation_ledger_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
 template int db_base<db_validator_archive_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
 template int db_base<db_quash_ledger_lookup_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
+template int db_base<db_system_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
+template int db_base<db_gossip_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
+template int db_base<db_sc_temp_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
+template int db_base<db_allowance_tag>::get_all_data(std::vector<std::string> &values, std::vector<std::string> &keys);
 
 template <typename T>
 int db_base<T>::remove_all()
 {
-    leveldb::WriteBatch batch;
+    rocksdb::WriteBatch batch;
 
     // Iterate over each item in the database and add them to the write batch for deletion
-    leveldb::Iterator *it = db->NewIterator(leveldb::ReadOptions());
+    rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
 
     for (it->SeekToFirst(); it->Valid(); it->Next())
     {
@@ -545,7 +564,7 @@ int db_base<T>::remove_all()
     delete it;
 
     std::lock_guard<std::mutex> lock(db_mutex);
-    return database::store_batch(db, status, batch);
+    return database::store_batch(db, batch);
 }
 template int db_base<db_contracts_tag>::remove_all();
 template int db_base<db_hash_index_tag>::remove_all();
@@ -565,7 +584,7 @@ template int db_base<db_validator_unbond_tag>::remove_all();
 template int db_base<db_proposal_ledger_tag>::remove_all();
 template int db_base<db_process_ledger_tag>::remove_all();
 template int db_base<db_proposals_tag>::remove_all();
-template int db_base<db_votes_tag>::remove_all();
+template int db_base<db_status_fee_tag>::remove_all();
 template int db_base<db_process_adaptive_ledger_tag>::remove_all();
 template int db_base<db_currency_equiv_tag>::remove_all();
 template int db_base<db_expense_ratio_tag>::remove_all();
@@ -596,6 +615,10 @@ template int db_base<db_confirmed_blocks_tag>::remove_all();
 template int db_base<db_attestation_ledger_tag>::remove_all();
 template int db_base<db_validator_archive_tag>::remove_all();
 template int db_base<db_quash_ledger_lookup_tag>::remove_all();
+template int db_base<db_system_tag>::remove_all();
+template int db_base<db_gossip_tag>::remove_all();
+template int db_base<db_sc_temp_tag>::remove_all();
+template int db_base<db_allowance_tag>::remove_all();
 
 
 template <typename T>
@@ -621,7 +644,7 @@ template int db_base<db_validator_unbond_tag>::compact_all();
 template int db_base<db_proposal_ledger_tag>::compact_all();
 template int db_base<db_process_ledger_tag>::compact_all();
 template int db_base<db_proposals_tag>::compact_all();
-template int db_base<db_votes_tag>::compact_all();
+template int db_base<db_status_fee_tag>::compact_all();
 template int db_base<db_process_adaptive_ledger_tag>::compact_all();
 template int db_base<db_currency_equiv_tag>::compact_all();
 template int db_base<db_expense_ratio_tag>::compact_all();
@@ -652,6 +675,10 @@ template int db_base<db_confirmed_blocks_tag>::compact_all();
 template int db_base<db_attestation_ledger_tag>::compact_all();
 template int db_base<db_validator_archive_tag>::compact_all();
 template int db_base<db_quash_ledger_lookup_tag>::compact_all();
+template int db_base<db_system_tag>::compact_all();
+template int db_base<db_gossip_tag>::compact_all();
+template int db_base<db_sc_temp_tag>::compact_all();
+template int db_base<db_allowance_tag>::compact_all();
 
 template <typename T>
 int db_base<T>::backup_database(const std::string &backup_path)
@@ -659,8 +686,8 @@ int db_base<T>::backup_database(const std::string &backup_path)
     std::lock_guard<std::mutex> lock(db_mutex);
 
     // Create a snapshot
-    const leveldb::Snapshot *snapshot = db->GetSnapshot();
-    leveldb::ReadOptions read_options;
+    const rocksdb::Snapshot *snapshot = db->GetSnapshot();
+    rocksdb::ReadOptions read_options;
     read_options.snapshot = snapshot;
 
     // Backup path
@@ -671,11 +698,11 @@ int db_base<T>::backup_database(const std::string &backup_path)
         // Ensure the backup directory exists
         std::filesystem::create_directories(full_backup_path);
 
-        // Open a new LevelDB database at the backup location
-        leveldb::Options options;
+        // Open a new rocksdb database at the backup location
+        rocksdb::Options options;
         options.create_if_missing = true;
-        leveldb::DB *backup_db;
-        leveldb::Status status = leveldb::DB::Open(options, full_backup_path, &backup_db);
+        rocksdb::DB *backup_db;
+        rocksdb::Status status = rocksdb::DB::Open(options, full_backup_path, &backup_db);
         if (!status.ok())
         {
             std::cerr << "Unable to open backup DB: " << status.ToString() << std::endl;
@@ -684,13 +711,13 @@ int db_base<T>::backup_database(const std::string &backup_path)
         }
 
         // Iterate over the data and write to the backup database
-        leveldb::Iterator *it = db->NewIterator(read_options);
-        leveldb::WriteBatch batch;
+        rocksdb::Iterator *it = db->NewIterator(read_options);
+        rocksdb::WriteBatch batch;
         for (it->SeekToFirst(); it->Valid(); it->Next())
         {
             batch.Put(it->key(), it->value());
         }
-        status = backup_db->Write(leveldb::WriteOptions(), &batch);
+        status = backup_db->Write(rocksdb::WriteOptions(), &batch);
         delete it;
         delete backup_db;
 
@@ -737,7 +764,7 @@ template int db_base<db_validator_unbond_tag>::backup_database(const std::string
 template int db_base<db_proposal_ledger_tag>::backup_database(const std::string &backup_path);
 template int db_base<db_process_ledger_tag>::backup_database(const std::string &backup_path);
 template int db_base<db_proposals_tag>::backup_database(const std::string &backup_path);
-template int db_base<db_votes_tag>::backup_database(const std::string &backup_path);
+template int db_base<db_status_fee_tag>::backup_database(const std::string &backup_path);
 template int db_base<db_process_adaptive_ledger_tag>::backup_database(const std::string &backup_path);
 template int db_base<db_currency_equiv_tag>::backup_database(const std::string &backup_path);
 template int db_base<db_expense_ratio_tag>::backup_database(const std::string &backup_path);
@@ -769,7 +796,9 @@ template int db_base<db_attestation_ledger_tag>::backup_database(const std::stri
 template int db_base<db_validator_archive_tag>::backup_database(const std::string &backup_path);
 template int db_base<db_quash_ledger_lookup_tag>::backup_database(const std::string &backup_path);
 template int db_base<db_system_tag>::backup_database(const std::string &backup_path);
-
+template int db_base<db_gossip_tag>::backup_database(const std::string &backup_path);
+template int db_base<db_sc_temp_tag>::backup_database(const std::string &backup_path);
+template int db_base<db_allowance_tag>::backup_database(const std::string &backup_path);
 
 template <typename T>
 int db_base<T>::restore_database(const std::string &backup_path) {
@@ -827,7 +856,7 @@ template int db_base<db_validator_unbond_tag>::restore_database(const std::strin
 template int db_base<db_proposal_ledger_tag>::restore_database(const std::string &backup_path);
 template int db_base<db_process_ledger_tag>::restore_database(const std::string &backup_path);
 template int db_base<db_proposals_tag>::restore_database(const std::string &backup_path);
-template int db_base<db_votes_tag>::restore_database(const std::string &backup_path);
+template int db_base<db_status_fee_tag>::restore_database(const std::string &backup_path);
 template int db_base<db_process_adaptive_ledger_tag>::restore_database(const std::string &backup_path);
 template int db_base<db_currency_equiv_tag>::restore_database(const std::string &backup_path);
 template int db_base<db_expense_ratio_tag>::restore_database(const std::string &backup_path);
@@ -859,6 +888,9 @@ template int db_base<db_attestation_ledger_tag>::restore_database(const std::str
 template int db_base<db_validator_archive_tag>::restore_database(const std::string &backup_path);
 template int db_base<db_quash_ledger_lookup_tag>::restore_database(const std::string &backup_path);
 template int db_base<db_system_tag>::restore_database(const std::string &backup_path);
+template int db_base<db_gossip_tag>::restore_database(const std::string &backup_path);
+template int db_base<db_sc_temp_tag>::restore_database(const std::string &backup_path);
+template int db_base<db_allowance_tag>::restore_database(const std::string &backup_path);
 
 template <typename T>
 int db_base<T>::get_first_data(std::string &key, std::string &value)
@@ -869,7 +901,7 @@ int db_base<T>::get_first_data(std::string &key, std::string &value)
         return 0;
     }
     // Iterate over each item in the database and add them to the write batch for deletion
-    leveldb::Iterator *it = db->NewIterator(leveldb::ReadOptions());
+    rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
     it->SeekToFirst();
 
     if (it->Valid())
@@ -906,7 +938,7 @@ int db_base<T>::get_next_data(const std::string &iterate_from, std::string &key,
         return 0;
     }
     // Iterate over each item in the database and add them to the write batch for deletion
-    leveldb::Iterator *it = db->NewIterator(leveldb::ReadOptions());
+    rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
     it->Seek(iterate_from);
 
     if (it->Valid() && it->key().ToString() == iterate_from)

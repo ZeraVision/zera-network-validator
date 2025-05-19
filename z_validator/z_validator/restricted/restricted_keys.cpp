@@ -43,6 +43,8 @@ namespace
             return true;
         case zera_txn::TRANSACTION_TYPE::SBT_BURN_TYPE:
             return true;
+        case zera_txn::TRANSACTION_TYPE::ALLOWANCE_TYPE:
+            return true;
         default:
             return false;
         }
@@ -79,6 +81,8 @@ namespace
             return restricted_key.compliance();
         case zera_txn::TRANSACTION_TYPE::FOUNDATION_TYPE:
             return restricted_key.update_contract();
+        case zera_txn::TRANSACTION_TYPE::ALLOWANCE_TYPE:
+            return restricted_key.transfer();
         default:
             return true;
         }
@@ -186,7 +190,7 @@ ZeraStatus restricted_keys_check::check_restricted_keys(const TXType *txn, zera_
     {
         // if key is not included and txn requires restricted key, fail key
         // if txn does not require restricted key, pass key
-        logging::print("check_restricted_keys - check_restricted_required:", auth_key_str);
+
         if (!check_restricted_required(txn_type))
         {
             return ZeraStatus(ZeraStatus::Code::NON_RESTRICTED_KEY, "restricted_keys.cpp: check_restricted_keys: sender public key is not Authorized to this contract", zera_txn::TXN_STATUS::INVALID_AUTH_KEY);
@@ -226,6 +230,7 @@ template ZeraStatus restricted_keys_check::check_restricted_keys<zera_txn::MintT
 template ZeraStatus restricted_keys_check::check_restricted_keys<zera_txn::ItemizedMintTXN>(const zera_txn::ItemizedMintTXN *txn, zera_txn::InstrumentContract &contract, const zera_txn::TRANSACTION_TYPE &txn_type, const bool timed);
 template ZeraStatus restricted_keys_check::check_restricted_keys<zera_txn::GovernanceProposal>(const zera_txn::GovernanceProposal *txn, zera_txn::InstrumentContract &contract, const zera_txn::TRANSACTION_TYPE &txn_type, const bool timed);
 template ZeraStatus restricted_keys_check::check_restricted_keys<zera_txn::ExpenseRatioTXN>(const zera_txn::ExpenseRatioTXN *txn, zera_txn::InstrumentContract &contract, const zera_txn::TRANSACTION_TYPE &txn_type, const bool timed);
+template ZeraStatus restricted_keys_check::check_restricted_keys<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *txn, zera_txn::InstrumentContract &contract, const zera_txn::TRANSACTION_TYPE &txn_type, const bool timed);
 
 template <>
 ZeraStatus restricted_keys_check::check_restricted_keys<zera_txn::CoinTXN>(const zera_txn::CoinTXN *txn, zera_txn::InstrumentContract &contract, const zera_txn::TRANSACTION_TYPE &txn_type, const bool timed)
@@ -379,7 +384,7 @@ void restricted_keys_check::check_quash_ledger(const zera_validator::Block *bloc
         return;
     }
 
-    leveldb::WriteBatch txn_batch;
+    rocksdb::WriteBatch txn_batch;
 
     for (auto txn_id : quash_ledger.txn_ids())
     {
@@ -481,7 +486,7 @@ bool restricted_keys_check::get_timed_txns(std::vector<std::string> &keys, std::
 
             if (quash_ledger.ParseFromString(value))
             {
-                leveldb::WriteBatch txn_batch;
+                rocksdb::WriteBatch txn_batch;
                 for (auto txn_id : quash_ledger.txn_ids())
                 {
                     db_timed_txns::get_single(txn_id, value);

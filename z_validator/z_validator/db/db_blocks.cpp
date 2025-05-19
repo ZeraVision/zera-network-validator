@@ -16,7 +16,6 @@ int db_blocks_tag::get_all_blocks(std::vector<zera_validator::Block> &blocks)
         logging::print("Reorg in progress. Database operation delayed.");
         return 0;
     }
-    std::lock_guard<std::mutex> lock(db_blocks::db_mutex);
     std::vector<std::string> keys;
     std::vector<std::string> values;
 
@@ -46,7 +45,6 @@ int db_blocks_tag::get_multi_data(std::string &start_key, int amount, std::vecto
         logging::print("Reorg in progress. Database operation delayed.");
         return 0;
     }
-    std::lock_guard<std::mutex> lock(db_blocks::db_mutex);
     std::vector<std::string> keys;
     std::vector<std::string> values;
     if (!database::get_multi_data(db_blocks::db, start_key, amount, keys, values))
@@ -77,7 +75,6 @@ int db_blocks_tag::get_last_data(zera_validator::Block &block, std::string &last
         logging::print("Reorg in progress. Database operation delayed.");
         return 0;
     }
-    std::lock_guard<std::mutex> lock(db_blocks::db_mutex);
     std::string last_value;
 
     if (!database::get_last_data(db_blocks::db, last_key, last_value))

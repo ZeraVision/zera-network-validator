@@ -23,6 +23,7 @@ template ZeraStatus verify_txns::verify_txn<zera_txn::BurnSBTTXN>(const zera_txn
 template ZeraStatus verify_txns::verify_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN *txn);
 template ZeraStatus verify_txns::verify_txn<zera_txn::SmartContractInstantiateTXN>(const zera_txn::SmartContractInstantiateTXN *txn);
 template ZeraStatus verify_txns::verify_txn<zera_txn::RequiredVersion>(const zera_txn::RequiredVersion *txn);
+template ZeraStatus verify_txns::verify_txn<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *txn);
 
 template <>
 void verify_txns::store_wrapper<zera_txn::MintTXN>(const zera_txn::MintTXN *txn, zera_txn::TXNWrapper &wrapper)
@@ -180,6 +181,12 @@ void verify_txns::store_wrapper<zera_txn::RequiredVersion>(const zera_txn::Requi
     wrapper.mutable_required_version_txn()->CopyFrom(*txn);
     wrapper.set_txn_type(zera_txn::TRANSACTION_TYPE::REQUIRED_VERSION);
 }
+template <>
+void verify_txns::store_wrapper<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *txn, zera_txn::TXNWrapper &wrapper)
+{
+    wrapper.mutable_allowance_txn()->CopyFrom(*txn);
+    wrapper.set_txn_type(zera_txn::TRANSACTION_TYPE::ALLOWANCE_TYPE);
+}
 
 template <typename TXType>
 ZeraStatus verify_txns::verify_identity(TXType *txn)
@@ -212,6 +219,7 @@ ZeraStatus verify_txns::verify_identity(TXType *txn)
         return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed. CRASH");
     }
 }
+
 
 template <>
 ZeraStatus verify_txns::verify_identity<zera_txn::SmartContractExecuteTXN>(zera_txn::SmartContractExecuteTXN *txn)
@@ -250,7 +258,6 @@ ZeraStatus verify_txns::verify_identity<zera_txn::ValidatorRegistration>(zera_tx
     try
     {
         /* code */
-
         zera_txn::ValidatorRegistration txn_copy;
         txn_copy.CopyFrom(*txn);
 
@@ -279,6 +286,6 @@ ZeraStatus verify_txns::verify_identity<zera_txn::ValidatorRegistration>(zera_tx
     }
     catch (...)
     {
-        return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: signature verification failed. Validator Registration CRASH");
+        return ZeraStatus(ZeraStatus::Code::SIGNATURE_ERROR, "verify_process.h: verify_identity: crash - signature verification failed. Validator Registration CRASH");
     }
 }

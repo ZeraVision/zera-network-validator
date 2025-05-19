@@ -6,12 +6,15 @@
 #include "wallets.h"
 #include "../governance/time_calc.h"
 
-void txn_batch::batch_item_mint(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, leveldb::WriteBatch &item_batch)
+void txn_batch::batch_item_mint(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
+    rocksdb::WriteBatch item_batch;
+
     for (auto item : txns.item_mint_txns())
     {
         if (txn_passed.at(item.base().hash()))
         {
+            
             zera_validator::NFT nft;
             nft.set_holder_address(item.recipient_address());
             nft.set_item_id(item.item_id());
@@ -26,11 +29,30 @@ void txn_batch::batch_item_mint(const zera_txn::TXNS &txns, const std::map<std::
             }
             
             item_batch.Put(item.item_id() + item.contract_id(), nft.SerializeAsString());
+
+            std::string wallet_data;
+            zera_validator::WalletItems wallet_items;
+
+            if(db_contract_items::get_single(item.recipient_address(), wallet_data))
+            {
+                wallet_items.ParseFromString(wallet_data);
+            }
+
+            zera_validator::Item *new_item = wallet_items.add_items();
+
+            new_item->set_item_id(item.item_id());
+            new_item->set_contract_id(item.contract_id());
+
+            item_batch.Put(item.recipient_address(), wallet_items.SerializeAsString());
         }
     }
+
+    db_contract_items::store_batch(item_batch);
 }
-void txn_batch::batch_nft_transfer(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed, leveldb::WriteBatch &item_batch)
+void txn_batch::batch_nft_transfer(const zera_txn::TXNS &txns, const std::map<std::string, bool> &txn_passed)
 {
+    rocksdb::WriteBatch item_batch;
+
     for (auto item : txns.nft_txns())
     {
         if (txn_passed.at(item.base().hash()))
@@ -44,6 +66,39 @@ void txn_batch::batch_nft_transfer(const zera_txn::TXNS &txns, const std::map<st
             }
             nft.set_holder_address(item.recipient_address());
             item_batch.Put(nft_key, nft.SerializeAsString());
+
+            std::string prev_addr = wallets::generate_wallet(item.base().public_key());
+            std::string prev_data;
+            zera_validator::WalletItems wallet_items;
+
+            if(db_contract_items::get_single(item.recipient_address(), prev_data))
+            {
+                wallet_items.ParseFromString(prev_data);
+
+                for (int x = 0; x < wallet_items.items_size(); x++)
+                {
+                    if (wallet_items.items(x).item_id() == item.item_id() && wallet_items.items(x).contract_id() == item.contract_id())
+                    {
+                        wallet_items.mutable_items()->DeleteSubrange(x, 1);
+                        break;
+                    }
+                }
+            }
+
+            std::string wallet_data;
+            zera_validator::WalletItems new_wallet_items;
+            if(db_contract_items::get_single(item.recipient_address(), wallet_data))
+            {
+                new_wallet_items.ParseFromString(wallet_data);
+            }
+            zera_validator::Item *new_item = new_wallet_items.add_items();
+            new_item->set_item_id(item.item_id());
+            new_item->set_contract_id(item.contract_id());
+
+            item_batch.Put(item.recipient_address(), new_wallet_items.SerializeAsString());
+            item_batch.Put(prev_addr, wallet_items.SerializeAsString());
         }
     }
+
+    db_contract_items::store_batch(item_batch);
 }

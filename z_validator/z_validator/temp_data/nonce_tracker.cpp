@@ -1,7 +1,8 @@
 #include "temp_data.h"
-#include "leveldb/write_batch.h"
+#include "rocksdb/write_batch.h"
 #include "db_base.h"
 #include "base58.h"
+#include "../logging/logging.h"
 
 std::map<std::string, uint64_t> nonce_tracker::used_nonce; // key = wallet_address, value = nonce   (txns in block)
 std::mutex nonce_tracker::mtx;
@@ -62,28 +63,14 @@ void nonce_tracker::add_used_nonce(const std::string &wallet_address, const uint
     }
 
 }
-void nonce_tracker::store_all()
+
+void nonce_tracker::store_used_nonce(const std::string& block_height)
 {
     std::lock_guard<std::mutex> lock(mtx);
-    leveldb::WriteBatch batch;
-
-    for (auto &nonce : used_nonce)
-    {
-        batch.Put(nonce.first, std::to_string(nonce.second));
-    }
-
-    db_wallet_nonce::store_batch(batch);
-    used_nonce.clear();
-}
-
-void nonce_tracker::store_used_nonce()
-{
-    std::lock_guard<std::mutex> lock(mtx);
-    leveldb::WriteBatch batch;
+    rocksdb::WriteBatch batch;
     
     for (auto &nonce : used_nonce)
     {
-
         batch.Put(nonce.first, std::to_string(nonce.second));
     }
 

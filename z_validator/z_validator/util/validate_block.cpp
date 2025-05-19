@@ -1,15 +1,43 @@
 #include "validate_block.h"
+
+#include <thread>
+
 #include "const.h"
 #include "../attestation/attestation_process.h"
 #include "../governance/gov_process.h"
 #include "threadpool.h"
 #include <vector>
 #include "../logging/logging.h"
+#include "../temp_data/temp_data.h"
 
 namespace
 {
 
-    void sign_hash_result(zera_validator::Block *block, const zera_txn::ProposalResult* original_result)
+    bool check_txn_processed(const std::string &hash)
+    {
+        int x = 0;
+
+        while (x < 10)
+        {
+            if (db_block_txns::exist(hash))
+            {
+                return true;
+            }
+
+            if (recieved_txn_tracker::check_txn(hash))
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+            else
+            {
+                return false;
+            }
+
+            x++;
+        }
+    }
+
+    void sign_hash_result(zera_validator::Block *block, const zera_txn::ProposalResult *original_result)
     {
         zera_txn::ProposalResult *result = block->mutable_transactions()->mutable_proposal_result_txns(0);
 
@@ -23,10 +51,9 @@ namespace
         std::string hash(hash_vec.begin(), hash_vec.end());
         result->mutable_base()->set_hash(hash);
 
-
-        for(auto &status : *block->mutable_transactions()->mutable_txn_fees_and_status())
+        for (auto &status : *block->mutable_transactions()->mutable_txn_fees_and_status())
         {
-            if(status.txn_hash() == *old_hash)
+            if (status.txn_hash() == *old_hash)
             {
                 status.set_txn_hash(hash);
             }
@@ -35,7 +62,6 @@ namespace
         logging::print("old hash:", base58_encode(*old_hash));
         logging::print("new hash:", base58_encode(block->transactions().txn_fees_and_status(0).txn_hash()));
         logging::print("should be hash:", base58_encode(hash));
-
     }
 
     void print_proposal_result(const zera_txn::ProposalResult &result)
@@ -54,21 +80,21 @@ namespace
         logging::print("base fee_id:", result.base().fee_id());
         logging::print("base fee_amount:", result.base().fee_amount());
 
-        for(auto option : result.option_cur_equiv())
+        for (auto option : result.option_cur_equiv())
         {
             logging::print("option cur:", option);
         }
-        for(auto vote : result.support_votes().votes())
+        for (auto vote : result.support_votes().votes())
         {
             logging::print("support votes:", vote.contract_id(), "-", vote.amount());
         }
-        for(auto vote : result.against_votes().votes())
+        for (auto vote : result.against_votes().votes())
         {
             logging::print("against votes:", vote.contract_id(), "-", vote.amount());
         }
-        for(auto option_vote : result.option_votes())
+        for (auto option_vote : result.option_votes())
         {
-            for(auto vote : option_vote.votes())
+            for (auto vote : option_vote.votes())
             {
                 logging::print("option votes:", vote.contract_id(), "-", vote.amount());
             }
@@ -179,7 +205,6 @@ namespace
         zera_txn::TXNWrapper wrapper;
         verify_txns::store_wrapper(txn, wrapper);
 
-
         if (processed)
         {
             logging::print("already processed");
@@ -214,9 +239,9 @@ namespace
         zera_txn::TXNS txns;
         txns.CopyFrom(block.transactions());
         std::vector<std::string> sc_hashes;
-        for(auto status : block.transactions().txn_fees_and_status())
+        for (auto status : block.transactions().txn_fees_and_status())
         {
-            if(status.smart_contract())
+            if (status.smart_contract())
             {
                 sc_hashes.push_back(base58_encode(status.txn_hash()));
             }
@@ -224,17 +249,17 @@ namespace
 
         for (auto txn : txns.coin_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -244,17 +269,17 @@ namespace
         }
         for (auto txn : txns.mint_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -265,17 +290,17 @@ namespace
         }
         for (auto txn : txns.item_mint_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -286,17 +311,17 @@ namespace
         }
         for (auto txn : txns.contract_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -307,17 +332,17 @@ namespace
         }
         for (auto txn : txns.governance_votes())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -328,17 +353,17 @@ namespace
         }
         for (auto txn : txns.governance_proposals())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -349,17 +374,17 @@ namespace
         }
         for (auto txn : txns.smart_contract_executes())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -370,17 +395,17 @@ namespace
         }
         for (auto txn : txns.smart_contracts())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -391,17 +416,17 @@ namespace
         }
         for (auto txn : txns.smart_contract_instantiate_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -412,17 +437,17 @@ namespace
         }
         for (auto txn : txns.self_cur_equivs())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -433,17 +458,17 @@ namespace
         }
         for (auto txn : txns.auth_cur_equivs())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -454,17 +479,17 @@ namespace
         }
         for (auto txn : txns.expense_ratios())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -475,17 +500,17 @@ namespace
         }
         for (auto txn : txns.nft_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -496,17 +521,17 @@ namespace
         }
         for (auto txn : txns.contract_update_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -517,17 +542,17 @@ namespace
         }
         for (auto txn : txns.validator_registration_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -538,17 +563,17 @@ namespace
         }
         for (auto txn : txns.validator_heartbeat_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -559,17 +584,17 @@ namespace
         }
         for (auto txn : txns.foundation_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -580,17 +605,17 @@ namespace
         }
         for (auto txn : txns.delegated_voting_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -601,17 +626,17 @@ namespace
         }
         for (auto txn : txns.quash_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -622,17 +647,17 @@ namespace
         }
         for (auto txn : txns.fast_quorum_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -643,17 +668,17 @@ namespace
         }
         for (auto txn : txns.revoke_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -664,17 +689,17 @@ namespace
         }
         for (auto txn : txns.compliance_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -685,17 +710,38 @@ namespace
         }
         for (auto txn : txns.burn_sbt_txns())
         {
-            bool processed = db_block_txns::exist(txn.base().hash());
+            bool processed = check_txn_processed(txn.base().hash());
 
-            if(txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
             {
                 continue;
             }
-            else 
+            else
             {
-                for(auto hash : sc_hashes)
+                for (auto hash : sc_hashes)
                 {
-                    if(txn.base().hash() == hash)
+                    if (txn.base().hash() == hash)
+                    {
+                        continue;
+                    }
+                }
+            }
+
+            wrap_txn(&txn, block_txns, processed);
+        }
+        for (auto txn : txns.allowance_txns())
+        {
+            bool processed = check_txn_processed(txn.base().hash());
+
+            if (txn.base().public_key().has_smart_contract_auth() || txn.base().public_key().has_governance_auth())
+            {
+                continue;
+            }
+            else
+            {
+                for (auto hash : sc_hashes)
+                {
+                    if (txn.base().hash() == hash)
                     {
                         continue;
                     }
@@ -706,7 +752,7 @@ namespace
         }
         if (txns.proposal_result_txns_size() > 0)
         {
-            if(!broadcast)
+            if (!broadcast)
             {
                 gov_process::check_ledgers(&block);
             }
@@ -722,7 +768,7 @@ namespace
 
     void store_block(zera_validator::Block &block)
     {
-        if(block.block_header().block_height() != 0)
+        if (block.block_header().block_height() != 0)
         {
             merkle_tree::build_merkle_tree(&block);
         }
@@ -855,15 +901,18 @@ namespace
         quash_tracker::quash_result(block_txns);
 
         std::vector<std::string> txn_hash_vec;
-        txn_hash_tracker::get_hash(txn_hash_vec);
+        std::vector<std::string> allowance_txn_hash_vec;
+
+        txn_hash_tracker::get_hash(txn_hash_vec, allowance_txn_hash_vec);
 
         proposing::set_all_token_fees(block, txn_hash_vec, original_block->block_header().fee_address());
 
-        if(block->transactions().proposal_result_txns_size() > 0 && original_block->transactions().proposal_result_txns_size() > 0)
+        if (block->transactions().proposal_result_txns_size() > 0 && original_block->transactions().proposal_result_txns_size() > 0)
         {
             sign_hash_result(block, &original_block->transactions().proposal_result_txns(0));
         }
 
+        allowance_tracker::add_block_allowance(allowance_txn_hash_vec);
         proposing::add_temp_wallet_balance(txn_hash_vec, original_block->block_header().fee_address());
 
         merkle_tree::build_merkle_tree(block);
@@ -875,52 +924,55 @@ namespace
         transactions txns;
         wrap_block(block, txns, broadcast);
 
-        zera_validator::Block *manual_block = new zera_validator::Block();
-        ZeraStatus status = proposing::make_block_sync(manual_block, txns, block.block_header().fee_address());
+        zera_validator::Block manual_block;
+        ZeraStatus status = proposing::make_block_sync(&manual_block, txns, block.block_header().fee_address());
+
         if (!status.ok())
         {
             logging::print(status.read_status());
             return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "block_sync_client.cpp: process_block: Error creating block");
         }
 
-        finish_process(manual_block, &block);
+        finish_process(&manual_block, &block);
 
-        if (!check_token_fees(manual_block, block))
+        if (!check_token_fees(&manual_block, block))
         {
-            logging::print( "********ORIGINAL BLOCK********");
+            logging::print("********ORIGINAL BLOCK********");
             logging::print(block.DebugString());
+            logging::print(base58_encode(block.transactions().token_fees(0).address()));
             logging::print("***MANUAL BLOCK***");
-            logging::print(manual_block->DebugString());
+            logging::print(manual_block.DebugString());
+            logging::print(base58_encode(manual_block.transactions().token_fees(0).address()));
             return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "block_sync_client.cpp: process_block: Token fees do not match");
         }
         else
         {
-            manual_block->mutable_transactions()->clear_token_fees();
-            manual_block->mutable_transactions()->mutable_token_fees()->CopyFrom(block.transactions().token_fees());
-            manual_block->mutable_transactions()->clear_txn_fees_and_status();
-            manual_block->mutable_transactions()->mutable_txn_fees_and_status()->CopyFrom(block.transactions().txn_fees_and_status());
+            manual_block.mutable_transactions()->clear_token_fees();
+            manual_block.mutable_transactions()->mutable_token_fees()->CopyFrom(block.transactions().token_fees());
+            manual_block.mutable_transactions()->clear_txn_fees_and_status();
+            manual_block.mutable_transactions()->mutable_txn_fees_and_status()->CopyFrom(block.transactions().txn_fees_and_status());
         }
 
-        block_utils::set_block_sync(manual_block, block.block_header());
+        block_utils::set_block_sync(&manual_block, block.block_header());
 
-        if (block.block_header().block_height() != manual_block->block_header().block_height())
+        if (block.block_header().block_height() != manual_block.block_header().block_height())
         {
             return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "block_sync_client.cpp: process_block: Block height does not match");
         }
-   
-        if (block.block_header().hash() != manual_block->block_header().hash())
+
+        if (block.block_header().hash() != manual_block.block_header().hash())
         {
             logging::print("********ORIGINAL BLOCK********");
-            logging::print(block.block_header().DebugString());
+            logging::print(block.DebugString());
             logging::print("********MANUAL BLOCK********");
-            logging::print(manual_block->block_header().DebugString());
+            logging::print(manual_block.DebugString());
             return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "block_sync_client.cpp: process_block: Block hash does not match");
         }
 
         std::string block_write;
         std::string header_write;
 
-        std::string key1 = block_utils::block_to_write(manual_block, block_write, header_write);
+        std::string key1 = block_utils::block_to_write(&manual_block, block_write, header_write);
 
         auto key_vec = Hashing::sha256_hash(key1);
 
@@ -931,12 +983,8 @@ namespace
 
         db_blocks::store_single(key1, block_write);
         db_headers::store_single(key1, header_write);
-        db_hash_index::store_single(manual_block->block_header().hash(), key1);
-
-        block_process::store_txns(manual_block, true, broadcast);
-
-        delete manual_block;
-
+        db_hash_index::store_single(manual_block.block_header().hash(), key1);
+        block_process::store_txns(&manual_block, true, broadcast);
         return ZeraStatus();
     }
 }
@@ -963,22 +1011,59 @@ ZeraStatus ValidateBlock::block_process(const zera_validator::Block &block, bool
 
     if (!broadcast)
     {
+
         int stat = check_genesis_validator_blocks(block);
+
         if (stat == -2)
         {
-            zera_validator::Block *manual_block = new zera_validator::Block();
-            manual_block->CopyFrom(block);
-            store_validator_nonce(manual_block);
-            store_block(*manual_block);
-            block_process::store_txns(manual_block, true, broadcast);
+            zera_validator::Block manual_block;
+            manual_block.CopyFrom(block);
+
+            zera_txn::PublicKey public_key;
+            public_key.set_single(block.transactions().validator_registration_txns(0).base().public_key().single());
+
+            status = block_process::check_nonce(public_key, block.transactions().validator_registration_txns(0).base().nonce());
+
+            if (!status.ok())
+            {
+                logging::print(status.read_status());
+                return status;
+            }
+
+            std::string wallet_adr;
+            for (auto txn : block.transactions().validator_registration_txns())
+            {
+                wallet_adr = wallets::generate_wallet(txn.base().public_key());
+                uint64_t txn_nonce = txn.base().nonce();
+                nonce_tracker::add_nonce(wallet_adr, txn_nonce, txn.base().hash());
+                nonce_tracker::add_used_nonce(wallet_adr, txn_nonce);
+            }
+
+            status = block_process::check_nonce(public_key, block.transactions().validator_heartbeat_txns(0).base().nonce());
+
+            if (!status.ok())
+            {
+                logging::print(status.read_status());
+                return status;
+            }
+
+            for (auto txn : block.transactions().validator_heartbeat_txns())
+            {
+                uint64_t txn_nonce = txn.base().nonce();
+                nonce_tracker::add_nonce(wallet_adr, txn_nonce, txn.base().hash());
+                nonce_tracker::add_used_nonce(wallet_adr, txn_nonce);
+            }
+
+            store_block(manual_block);
+            block_process::store_txns(&manual_block, true, broadcast);
             return ZeraStatus();
         }
         else if (stat == -1)
         {
-            zera_validator::Block *manual_block = new zera_validator::Block();
-            manual_block->CopyFrom(block);
-            store_block(*manual_block);
-            block_process::store_txns(manual_block, true, broadcast);
+            zera_validator::Block manual_block;
+            manual_block.CopyFrom(block);
+            store_block(manual_block);
+            block_process::store_txns(&manual_block, true, broadcast);
             return ZeraStatus();
         }
     }
@@ -996,14 +1081,13 @@ ZeraStatus ValidateBlock::block_process(const zera_validator::Block &block, bool
         zera_validator::Block *attestation_block = new zera_validator::Block();
         attestation_block->CopyFrom(block);
 
-        ValidatorThreadPool &pool = ValidatorThreadPool::getInstance();
         try
         {
             // Enqueue the task into the thread pool
-            pool.enqueueTask([attestation_block](){ 
+            ValidatorThreadPool::enqueueTask([attestation_block]()
+                                             { 
                 AttestationProcess::CreateAttestation(attestation_block); 
-                delete attestation_block; 
-            });
+                delete attestation_block; });
         }
         catch (const std::exception &e)
         {
@@ -1012,4 +1096,4 @@ ZeraStatus ValidateBlock::block_process(const zera_validator::Block &block, bool
     }
 
     return ZeraStatus();
-    }
+}

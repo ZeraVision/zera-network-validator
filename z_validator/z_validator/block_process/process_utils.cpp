@@ -71,6 +71,7 @@ template ZeraStatus block_process::process_simple_fees<zera_txn::ValidatorRegist
 template ZeraStatus block_process::process_simple_fees<zera_txn::SmartContractTXN>(const zera_txn::SmartContractTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string &fee_address);
 template ZeraStatus block_process::process_simple_fees<zera_txn::SmartContractInstantiateTXN>(const zera_txn::SmartContractInstantiateTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string &fee_address);
 template ZeraStatus block_process::process_simple_fees<zera_txn::MintTXN>(const zera_txn::MintTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string &fee_address);
+template ZeraStatus block_process::process_simple_fees<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string &fee_address);
 
 template <>
 ZeraStatus block_process::process_simple_fees<zera_txn::InstrumentContract>(const zera_txn::InstrumentContract *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string &fee_address)
@@ -244,7 +245,7 @@ bool block_process::check_qualified(const std::string &contract_id)
 }
 
 // function to get the cur equivelent of both the token and the fee token
-// 1.00$ = 1000000000000000000
+// 1.00$ = 1 000 000 000 000 000 000
 void block_process::get_cur_equiv(const std::string &contract_id, uint256_t &cur_equiv)
 {
     zera_validator::CurrencyRate rate;
@@ -314,9 +315,9 @@ void block_process::store_wallets()
 {
     std::vector<std::string> addresses;
     std::vector<std::string> wallets_data;
-    leveldb::WriteBatch wallet_batch;
-    leveldb::WriteBatch exist_batch;
-    leveldb::WriteBatch lookup_batch;
+    rocksdb::WriteBatch wallet_batch;
+    rocksdb::WriteBatch exist_batch;
+    rocksdb::WriteBatch lookup_batch;
 
     db_wallets_temp::get_all_data(addresses, wallets_data);
     logging::print("starting store");
@@ -426,7 +427,7 @@ ZeraStatus block_process::process_fees(const zera_txn::InstrumentContract &contr
     ZeraStatus status = ZeraStatus();
     if (!storage_fees)
     {
-        status = balance_tracker::subtract_txn_balance(wallet_adr + fee_symbol, fee_amount, txn_hash);
+        status = balance_tracker::subtract_txn_balance(wallet_adr, fee_symbol, fee_amount, txn_hash);
     }
 
     if (!status.ok())
@@ -475,13 +476,13 @@ ZeraStatus block_process::process_fees(const zera_txn::InstrumentContract &contr
     if (validator_percent > zero_256)
     {
         validator_fee = (validator_percent * fee_amount) / 100;
-        balance_tracker::add_txn_balance(validator_fee_address + fee_symbol, validator_fee, txn_hash);
+        balance_tracker::add_txn_balance(validator_fee_address, fee_symbol, validator_fee, txn_hash);
         proposing::set_txn_token_fees(txn_hash, fee_symbol, validator_fee_address, validator_fee);
     }
     if (foundation_percent > zero_256)
     {
         foundation_fee = (foundation_percent * fee_amount) / 100;
-        balance_tracker::add_txn_balance(foundation_wallet + fee_symbol, foundation_fee, txn_hash);
+        balance_tracker::add_txn_balance(foundation_wallet, fee_symbol, foundation_fee, txn_hash);
         proposing::set_txn_token_fees(txn_hash, fee_symbol, foundation_wallet, foundation_fee);
     }
     if (burn_percent > zero_256)
@@ -495,13 +496,13 @@ ZeraStatus block_process::process_fees(const zera_txn::InstrumentContract &contr
             burn_fee = (burn_percent * fee_amount) / 100;
         }
 
-        balance_tracker::add_txn_balance(BURN_WALLET + fee_symbol, burn_fee, txn_hash);
+        balance_tracker::add_txn_balance(BURN_WALLET, fee_symbol, burn_fee, txn_hash);
         proposing::set_txn_token_fees(txn_hash, fee_symbol, BURN_WALLET, burn_fee);
     }
     if (contract_percent > zero_256)
     {
         contract_fee = fee_amount - validator_fee - burn_fee;
-        balance_tracker::add_txn_balance(contract.contract_fees().fee_address() + fee_symbol, contract_fee, txn_hash);
+        balance_tracker::add_txn_balance(contract.contract_fees().fee_address(), fee_symbol, contract_fee, txn_hash);
         proposing::set_txn_token_fees(txn_hash, fee_symbol, contract.contract_fees().fee_address(), contract_fee);
     }
 

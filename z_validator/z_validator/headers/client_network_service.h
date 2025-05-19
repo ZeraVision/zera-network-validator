@@ -18,6 +18,7 @@
 #include "../block_process/block_process.h"
 #include "threadpool.h"
 #include "../logging/logging.h"
+#include "rate_limiter.h"
 
 class ClientNetworkServiceImpl final : public zera_txn::TXNService::Service
 {
@@ -43,31 +44,65 @@ public:
     grpc::Status Compliance(grpc::ServerContext *context, const zera_txn::ComplianceTXN *request, google::protobuf::Empty *response) override;
     grpc::Status BurnSBT(grpc::ServerContext *context, const zera_txn::BurnSBTTXN *request, google::protobuf::Empty *response) override;
     grpc::Status SmartContractInstantiate(grpc::ServerContext *context, const zera_txn::SmartContractInstantiateTXN *request, google::protobuf::Empty *response) override;
+    grpc::Status Allowance(grpc::ServerContext *context, const zera_txn::AllowanceTXN *request, google::protobuf::Empty *response) override;
 
-    void StartService()
+    void StartService(const std::string &port = "50052")
     {
         grpc::ServerBuilder builder;
-        builder.AddListeningPort("0.0.0.0:50052", grpc::InsecureServerCredentials());
+        std::string listening = "0.0.0.0:" + port;
+
+        builder.AddListeningPort(listening, grpc::InsecureServerCredentials());
         builder.RegisterService(this);
         std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
         server->Wait();
     }
 
+    static void RateLimitConfig()
+    {
+        RateLimiterConfig config;
+        config.baseRefillRate = 1.0;
+        config.baseCapacity = 3.0;
+        config.refillScale = 0.2;
+        config.capacityScale = 0.5;
+        rate_limiter.configure(config);
+    }
+
+    static RateLimiter rate_limiter; // Token bucket for rate limiting
+
 private:
+
     template <typename TXType>
     grpc::Status RecieveRequest(grpc::ServerContext *context, const TXType *request, google::protobuf::Empty *response)
     {
+        // Get the client's IP address
+        std::string peer_info = context->peer();
+        std::string client_ip;
+
+        // Extract the IP address from the peer info
+        size_t pos = peer_info.find(":");
+        if (pos != std::string::npos)
+        {
+            client_ip = peer_info.substr(0, pos); // Extract everything before the first colon
+        }
+        else
+        {
+            client_ip = peer_info; // Fallback if no colon is found
+        }
+
+        if(!rate_limiter.canProceed(client_ip))
+        {
+            std::cerr << "Rate limit exceeded for IP: " << client_ip << std::endl;
+            return grpc::Status(grpc::StatusCode::RESOURCE_EXHAUSTED, "Rate limit exceeded");
+        }
+
         TXType *txn = new TXType();
         txn->CopyFrom(*request);
 
-        ThreadPool &pool = ThreadPool::getInstance();
-
         try
         {
-            pool.enqueueTask([txn](){ 
-                ProcessRequest<TXType>(txn);
-                delete txn;                
-            });
+            ThreadPool::enqueueTask([txn, client_ip](){ 
+                ProcessRequest<TXType>(txn, client_ip); 
+                delete txn; });
         }
         catch (const std::exception &e)
         {
@@ -78,8 +113,9 @@ private:
     }
 
     template <typename TXType>
-    static void ProcessRequest(const TXType *request)
+    static void ProcessRequest(const TXType *request, std::string client_ip)
     {
+
         ZeraStatus status = verify_txns::verify_txn(request);
 
         std::string memo = request->base().memo();
@@ -96,6 +132,7 @@ private:
             {
                 logging::print(status.read_status());
             }
+            rate_limiter.processUpdate(client_ip, true);
             return;
         }
 
@@ -106,31 +143,24 @@ private:
         {
             status.prepend_message("client_network_service: ProcessRequest: " + memo);
             logging::print(status.read_status());
+            rate_limiter.processUpdate(client_ip, true);
+            return;
+        }
+
+        if (!request || !request->IsInitialized())
+        {
+            rate_limiter.processUpdate(client_ip, true);
+            logging::print("Error: Protobuf object is null or not initialized in ProcessRequest");
             return;
         }
 
         TXType *txn = new TXType();
         txn->CopyFrom(*request);
-        
 
-        ThreadPool &pool = ThreadPool::getInstance();
+        std::string ip = client_ip;
+        pre_process::process_txn(txn, txn_type, ip);
 
-        try
-        {
-            // Enqueue the task instead of creating a new thread
-            pool.enqueueTask([txn, txn_type](){ 
-                pre_process::process_txn(txn, txn_type); 
-                delete txn;
-            });
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << "Failed to enqueue task: " << e.what() << std::endl;
-        }
-
-
-        logging::print(memo, "client transaction verified!");
+        delete txn;
     }
 };
-
 #endif

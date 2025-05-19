@@ -17,11 +17,6 @@ ZeraStatus block_process::check_parameters<zera_txn::ComplianceTXN>(const zera_t
         return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_compliance.cpp: check_parameters: Contract does not exist.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
     }
 
-    if(!contract.kyc_status())
-    {
-        return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_compliance.cpp: check_parameters: Contract is not KYC.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
-    }
-
     if(txn->compliance_size() <= 0)
     {
         return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_compliance.cpp: check_parameters: Compliance size is 0.", zera_txn::TXN_STATUS::INVALID_PARAMETERS);

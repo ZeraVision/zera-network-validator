@@ -16,18 +16,18 @@ namespace
     block_process::get_cur_equiv("$ZRA+0000", usd_equiv);
     storage_fee = (storage_fee * 1000000000) / usd_equiv;
 
-    ZeraStatus status = balance_tracker::subtract_txn_balance(sender.fee_smart_contract_wallet + "$ZRA+0000", storage_fee, sender.txn_hash);
+    ZeraStatus status = balance_tracker::subtract_txn_balance(sender.fee_smart_contract_wallet, "$ZRA+0000", storage_fee, sender.txn_hash);
 
-    if(!status.ok())
+    if (!status.ok())
     {
       return false;
     }
-    
+
     std::string storage_key = "STORAGE_FEE_" + sender.fee_smart_contract_instance;
 
     std::string fee_data;
-    
-    if(db_smart_contracts::get_single(storage_key, fee_data))
+
+    if (db_smart_contracts::get_single(storage_key, fee_data))
     {
       uint256_t fee(fee_data);
       storage_fee += fee;
@@ -53,7 +53,6 @@ WasmEdge_Result StoreState(void *Data, const WasmEdge_CallingFrameContext *CallF
   std::vector<unsigned char> Key(KeySize);
   std::vector<unsigned char> Value(ValueSize);
 
-
   // https://wasmedge.org/docs/embed/c/host_function/#calling-frame-context
   // https://www.secondstate.io/articles/extend-webassembly/
   WasmEdge_MemoryInstanceContext *MemCxt = WasmEdge_CallingFrameGetMemoryInstance(CallFrameCxt, 0);
@@ -76,18 +75,23 @@ WasmEdge_Result StoreState(void *Data, const WasmEdge_CallingFrameContext *CallF
 
       if (!storage_fees(sender, storage_fee))
       {
-        int value = 0;
-        Out[0] = WasmEdge_ValueGenI32(value); 
-        return WasmEdge_Result_Success;
+        logging::print("Storage fees check failed for sender: " + storeKey, true);
+        return WasmEdge_Result_Terminate;
       }
       // store Key and Value
       std::string valueString(reinterpret_cast<char *>(Value.data()), ValueSize);
 
+      if (!db_sc_temp::exist(storeKey))
+      {
+        std::string original_data;
+        db_smart_contracts::get_single(storeKey, original_data);
+        db_sc_temp::store_single(storeKey, original_data);
+      }
 
       db_smart_contracts::store_single(storeKey, valueString);
 
       int value = 1;
-      Out[0] = WasmEdge_ValueGenI32(value); 
+      Out[0] = WasmEdge_ValueGenI32(value);
       return WasmEdge_Result_Success;
     }
     else
@@ -127,7 +131,6 @@ WasmEdge_Result RetrieveState(void *Data, const WasmEdge_CallingFrameContext *Ca
     std::string keyString(reinterpret_cast<char *>(Key.data()), KeySize);
 
     std::string storeKey = sender.current_smart_contract_instance + "_" + keyString;
-
     std::string raw_data;
     db_smart_contracts::get_single(storeKey, raw_data);
 
@@ -168,6 +171,14 @@ WasmEdge_Result ClearState(void *Data, const WasmEdge_CallingFrameContext *CallF
     // store Key and Value
     std::string keyString(reinterpret_cast<char *>(Key.data()), KeySize);
     std::string storeKey = sender.current_smart_contract_instance + "_" + keyString;
+
+    if (!db_sc_temp::exist(storeKey))
+    {
+      std::string original_data;
+      db_smart_contracts::get_single(storeKey, original_data);
+      db_sc_temp::store_single(storeKey, original_data);
+    }
+
     db_smart_contracts::remove_single(storeKey);
 
     return WasmEdge_Result_Success;

@@ -57,12 +57,13 @@ public:
 
 	template <typename TXType>
 	static void StartGossip(const TXType *request);
+	static void GossipThread();
 
 	// Sync funcs
 	grpc::Status SyncBlockchain(const BlockSync *request, std::vector<zera_validator::DataChunk> *responses);
 
 	grpc::Status AttestationSend(const zera_validator::BlockAttestation *request);
-	static void ProcessBlockAttestationAsync(std::vector<zera_validator::DataChunk>& response_chunks, std::shared_ptr<zera_validator::BlockAttestation> request);
+	static void ProcessBlockAttestationAsync(std::vector<zera_validator::DataChunk> &response_chunks, std::shared_ptr<zera_validator::BlockAttestation> request);
 
 	// Helper functions
 	static bool StartSyncBlockchain(const bool seed_sync = false);
@@ -145,6 +146,8 @@ private:
 		statuses_.clear();
 		attestation_responses_.clear();
 	}
+	void SendGossip(const zera_validator::TXNGossip *request);
+	void SendStreamGossip(const zera_validator::TXNGossip *request);
 	void SendStreamBlock(const zera_validator::Block *block);
 
 	void SendAttestation(const zera_validator::BlockAttestation *request);
@@ -159,10 +162,21 @@ private:
 		grpc::ClientContext *context = new grpc::ClientContext();
 		grpc::Status *status = new grpc::Status();
 		Empty *response = new Empty;
-		std::chrono::system_clock::time_point deadline = std::chrono::system_clock::now() + std::chrono::seconds(5);
+		std::chrono::system_clock::time_point deadline = std::chrono::system_clock::now() + std::chrono::seconds(2);
 		context->set_deadline(deadline);
 
-		GRPCSend(request, call_num, context, status, response);
+		try
+		{
+			GRPCSend(request, call_num, context, status, response);
+		}
+		catch (const std::exception &e)
+		{
+			delete context;
+			delete status;
+			delete response;
+			logging::log("Error in GRPCSend: " + std::string(e.what()));
+			return;
+		}
 
 		statuses_[call_num] = status;
 		responses_[call_num] = response;
@@ -180,35 +194,90 @@ private:
 
 		size_t responses_received = 0;
 
-		// Wait for the server to respond
+		// Process the CompletionQueue
 		while (responses_received < stubs_.size())
 		{
 			void *got_tag;
 			bool ok = false;
-			if (cq_.Next(&got_tag, &ok) && ok)
+
+			// Add a timeout to prevent indefinite blocking
+			auto deadline = std::chrono::system_clock::now() + std::chrono::seconds(2);
+			grpc::CompletionQueue::NextStatus status = cq_.AsyncNext(&got_tag, &ok, deadline);
+
+			if (status == grpc::CompletionQueue::NextStatus::GOT_EVENT && ok)
 			{
 				int server_num = static_cast<int>(reinterpret_cast<size_t>(got_tag));
 				auto it = statuses_.find(server_num);
 				if (it == statuses_.end())
 				{
-					std::string error = "Error: received response for unknown server " + std::to_string(server_num);
-					logging::log(error);
+					logging::print("Error: Received response for unknown server " + std::to_string(server_num));
 					continue;
 				}
 
 				if (!it->second->ok())
 				{
-					std::string error = "Error: call to server " + std::to_string(server_num) + " failed: " + it->second->error_message();
-					logging::log(error);
+					if (it->second->error_code() == grpc::StatusCode::DEADLINE_EXCEEDED)
+					{
+						logging::print("Error: Call to server timed out");
+					}
+					else
+					{
+						logging::print("Error: Call to server " + std::to_string(server_num) + " failed: " + it->second->error_message());
+					}
 				}
 				else
 				{
-					std::string message = "Received response from server " + std::to_string(server_num);
-					logging::log(message);
+					logging::print("Received successful response from server " + std::to_string(server_num));
 				}
+			}
+			else if (status == grpc::CompletionQueue::NextStatus::TIMEOUT)
+			{
+				logging::print("AsyncValidatorSend: CompletionQueue timed out");
+			}
+			else
+			{
+				logging::print("AsyncValidatorSend: CompletionQueue failed or returned false");
 			}
 
 			++responses_received;
+		}
+	}
+
+	static void get_channels(std::vector<std::shared_ptr<grpc::Channel>> &channels, bool broadcast = true)
+	{
+		std::vector<zera_txn::Validator> validators = get_random_validators();
+		int x = 0;
+		for (const auto validator : validators)
+		{
+			std::string pub_key = wallets::get_public_key_string(validator.public_key());
+			if (pub_key != ValidatorConfig::get_public_key() && validator.online() && x < 10)
+			{
+				std::string host = validator.host() + ":" + validator.validator_port();
+				std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(host, grpc::InsecureChannelCredentials());
+				channels.push_back(channel);
+				x++;
+			}
+
+			if (x >= 9)
+			{
+				break;
+			}
+		}
+
+		if (broadcast)
+		{
+			// send broadcast to explorer servers
+			std::ifstream file(EXPLORER_CONFIG); // Open the file
+			if (file.is_open())
+			{
+				std::string line;
+				while (std::getline(file, line))
+				{
+					std::shared_ptr<grpc::Channel> channel = grpc::CreateChannel(line, grpc::InsecureChannelCredentials());
+					channels.push_back(channel);
+				}
+				file.close(); // Close the file
+			}
 		}
 	}
 };

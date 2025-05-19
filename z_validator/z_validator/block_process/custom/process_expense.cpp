@@ -26,8 +26,8 @@ namespace
             db_wallets::get_single(wallet + contract_id, wallet_balance);
             uint256_t balance(wallet_balance);
             uint256_t expense_amount = (balance * percent) / diviser;
-            balance_tracker::add_txn_balance(sender_key, expense_amount, txn->base().hash());
-            balance_tracker::subtract_txn_balance(wallet + contract_id, expense_amount, txn->base().hash());
+            balance_tracker::add_txn_balance(rec_wallet, contract_id, expense_amount, txn->base().hash());
+            balance_tracker::subtract_txn_balance(wallet, contract_id, expense_amount, txn->base().hash());
 
             zera_txn::Wallets *wallet1 = result->add_wallets();
             wallet1->set_address(wallet);
@@ -59,7 +59,7 @@ namespace
         ZeraStatus status = block_process::get_contract(txn->contract_id(), contract);
         if (!status.ok())
         {
-            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_cur_equiv.cpp: check_restricted: Contract does not exist.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
+            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_expense.cpp: check_parameters_expense: Contract does not exist.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
         }
 
         std::string pub_key = wallets::get_public_key_string(txn->base().public_key());
@@ -72,6 +72,7 @@ namespace
 
         for (auto expense_ratio : contract.expense_ratio())
         {
+
             if (expense_ratio.day() == now.tm_mday && expense_ratio.month() == month)
             {
                 today_expense_ratio.CopyFrom(expense_ratio);

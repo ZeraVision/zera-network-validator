@@ -1,14 +1,18 @@
 #include "validators.h"
 #include "wallets.h"
 #include "../logging/logging.h"
+#include <thread>
 
 std::string ValidatorConfig::host_;
 std::string ValidatorConfig::client_port_;
 std::string ValidatorConfig::validator_port_;
+std::string ValidatorConfig::api_port_;
 std::string ValidatorConfig::fee_address_string_;
 std::vector<std::string> ValidatorConfig::seed_validators_;
 std::vector<std::string> ValidatorConfig::staked_contract_ids_;
+std::vector<std::string> ValidatorConfig::white_list_;
 uint32_t ValidatorConfig::version_;
+uint32_t ValidatorConfig::required_version_;
 KeyPair ValidatorConfig::key_pair_;
 KeyPair ValidatorConfig::gen_key_pair_;
 std::vector<uint8_t> ValidatorConfig::fee_address_;
@@ -48,6 +52,10 @@ void ValidatorConfig::set_configs(const std::string& line)
 		else if (key == "server_port")
 		{
 			ValidatorConfig::set_validator_port(value);
+		}
+		else if(key == "api_port")
+		{
+			ValidatorConfig::set_api_port(value);
 		}
 		else if (key == "public_key")
 		{
@@ -89,7 +97,11 @@ void ValidatorConfig::set_configs(const std::string& line)
 		{
 			std::transform(value.begin(), value.end(), value.begin(), ::tolower);
 
-			if(value == "true" || value == "false")
+			if(value == "true")
+			{
+				ValidatorConfig::set_register(value);
+			}
+			else if(value == "false")
 			{
 				ValidatorConfig::set_register(value);
 			}
@@ -97,6 +109,10 @@ void ValidatorConfig::set_configs(const std::string& line)
 			{
 				ValidatorConfig::set_register("N/A");
 			}
+		}
+		else if(key == "whitelist")
+		{
+			ValidatorConfig::set_whitelist(value);
 		}
 	}
 }
@@ -125,32 +141,39 @@ void ValidatorConfig::copy_and_process_config_file(std::ifstream &srcFile, std::
 void ValidatorConfig::set_config()
 {
 	std::ifstream volume_config(VALIDATOR_CONFIG);
-	std::ifstream file("/z_validator/config/validator.conf");
 	set_version(VERSION);
-	set_treasury_wallet(TREASURY_WALLET);
+	std::string temp_treasury_wallet;
+
+	if(!db_system::get_single(TREASURY_KEY, temp_treasury_wallet))
+	{
+		db_system::store_single(TREASURY_KEY, TREASURY_WALLET);
+		temp_treasury_wallet = TREASURY_WALLET;
+	}
+	set_treasury_wallet(temp_treasury_wallet);
+
+	std::string temp_required_version;
+	uint32_t required_version = 100000;
+	if(db_system::get_single(REQUIRED_VERSION, temp_required_version))
+	{
+		zera_txn::RequiredVersion required_version_txn;
+		required_version_txn.ParseFromString(temp_required_version);
+		required_version = required_version_txn.version(0);
+	}
+	else
+	{
+		db_system::store_single(REQUIRED_VERSION, std::to_string(required_version));
+	}
+	set_required_version(required_version);
 
 	if (volume_config.is_open())
 	{
 		process_config_file(volume_config);
 		volume_config.close();
 	}
-	else if (file.is_open())
-	{
-		std::ofstream destFile(VALIDATOR_CONFIG);
-		if (!destFile.is_open())
-		{
-			logging::print("Failed to open the destination config file.", false);
-		}
-		else
-		{
-			copy_and_process_config_file(file, destFile);
-			file.close();
-			destFile.close(); // Close the destination file
-		}
-	}
 	else
 	{
 		logging::print("Failed to open validator config file.", false);
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 }
 
@@ -183,6 +206,10 @@ void ValidatorConfig::set_fee_address()
 	}
 }
 
+uint32_t ValidatorConfig::get_required_version()
+{
+	return required_version_;
+}
 uint32_t ValidatorConfig::get_version()
 {
 	return version_;
@@ -194,6 +221,15 @@ std::string ValidatorConfig::get_host()
 std::string ValidatorConfig::get_client_port()
 {
 	return client_port_;
+}
+std::string ValidatorConfig::get_api_port()
+{
+	if(api_port_.empty())
+	{
+		return "0";
+	}
+
+	return api_port_;
 }
 std::string ValidatorConfig::get_validator_port()
 {
@@ -263,11 +299,23 @@ std::string ValidatorConfig::get_register()
 {
 	return register_;
 }
+std::vector<std::string> ValidatorConfig::get_whitelist()
+{
+	return white_list_;
+}
 
 void ValidatorConfig::set_register(const std::string& register_string)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
 	register_ = register_string;
+}
+void ValidatorConfig::set_whitelist(const std::string& whitelist)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	if (whitelist != "")
+	{
+		white_list_.push_back(whitelist);
+	}
 }
 void ValidatorConfig::set_block_height(const std::string& block_height)
 {
@@ -286,6 +334,12 @@ void ValidatorConfig::set_staked_contract_id(const std::string& staked_contract_
 	staked_contract_ids_.push_back(staked_contract_id);
 }
 
+void ValidatorConfig::set_required_version(const uint32_t& version)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	required_version_ = version;
+}
+
 void ValidatorConfig::set_host(const std::string& host)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
@@ -300,6 +354,11 @@ void ValidatorConfig::set_validator_port(const std::string& validator_port)
 {
 	std::lock_guard<std::mutex> lock(mutex_);
 	validator_port_ = validator_port;
+}
+void ValidatorConfig::set_api_port(const std::string& api_port)
+{
+	std::lock_guard<std::mutex> lock(mutex_);
+	api_port_ = api_port;
 }
 void ValidatorConfig::set_seed_validators(const std::string& seed_validator)
 {

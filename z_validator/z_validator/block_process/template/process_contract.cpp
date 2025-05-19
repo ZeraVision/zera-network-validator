@@ -19,7 +19,7 @@ namespace
 
     ZeraStatus check_release(const zera_txn::InstrumentContract *txn, const uint256_t premint_amount)
     {
-        if(txn->max_supply_release_size() <= 0)
+        if (txn->max_supply_release_size() <= 0)
         {
             return ZeraStatus();
         }
@@ -36,18 +36,18 @@ namespace
         {
 
             release.release_date().seconds();
-            if(!is_valid_uint256(release.amount()))
+            if (!is_valid_uint256(release.amount()))
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: check_release: Invalid release amount", zera_txn::TXN_STATUS::INVALID_UINT256);
             }
 
             uint256_t release_amount(release.amount());
-            if(release.release_date().seconds() <= header.timestamp().seconds())
+            if (release.release_date().seconds() <= header.timestamp().seconds())
             {
                 initial_release += release_amount;
             }
 
-            if(release_date >= release.release_date().seconds())
+            if (release_date >= release.release_date().seconds())
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: check_release: Release dates are not in order", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
             }
@@ -56,14 +56,14 @@ namespace
             total_release += release_amount;
         }
 
-        if(premint_amount > initial_release)
+        if (premint_amount > initial_release)
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: check_release: Premint amount is greater than total release", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
 
         uint256_t max_supply(txn->max_supply());
 
-        if(max_supply != total_release)
+        if (max_supply != total_release)
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: check_release: Total release does not match max supply", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
@@ -189,8 +189,19 @@ namespace
     ZeraStatus check_premints(const zera_txn::InstrumentContract *txn)
     {
         uint256_t total_amount = 0;
+
+        std::unordered_set<std::string> unique_addresses; 
+
         for (auto premint : txn->premint_wallets())
         {
+            // Check if the address is unique
+            if (unique_addresses.find(premint.address()) != unique_addresses.end())
+            {
+                return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_premints: Duplicate address found: " + base58_encode(premint.address()), zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
+            }
+
+            // Add the address to the set
+            unique_addresses.insert(premint.address());
 
             if (!is_valid_uint256(premint.amount()))
             {
@@ -199,27 +210,20 @@ namespace
             uint256_t amount(premint.amount());
             total_amount += amount;
         }
-
         uint256_t max_supply(txn->max_supply());
 
-        if(total_amount > max_supply)
+        if (total_amount > max_supply)
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_premints: Premints are greater than max supply", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
-
         ZeraStatus status = check_release(txn, total_amount);
-
-        if(!status.ok())
+        if (!status.ok())
         {
             return status;
         }
 
-        for (auto premint : txn->premint_wallets())
-        {
-            uint256_t amount(premint.amount());
-            total_amount += amount;
-            balance_tracker::add_txn_balance(premint.address() + txn->contract_id(), amount, txn->base().hash());
-        }
+
+        balance_tracker::add_txn_balance_premint(txn->premint_wallets(), txn->contract_id(), txn->base().hash());
 
         return ZeraStatus();
     }
@@ -231,14 +235,14 @@ namespace
         }
         zera_txn::Governance governance = txn->governance();
 
-        //type cannot be remove on contract creation, this is only for contract update
-        if(governance.type() == zera_txn::GOVERNANCE_TYPE::REMOVE)
+        // type cannot be remove on contract creation, this is only for contract update
+        if (governance.type() == zera_txn::GOVERNANCE_TYPE::REMOVE)
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance type is remove.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
 
-        //governance voting instrument cannot be empty for any type of governance
-        //governance proposal instrument cannot be empty for any type of governance
+        // governance voting instrument cannot be empty for any type of governance
+        // governance proposal instrument cannot be empty for any type of governance
         if (governance.voting_instrument_size() <= 0 ||
             governance.allowed_proposal_instrument_size() <= 0)
         {
@@ -247,7 +251,7 @@ namespace
 
         std::regex pattern("^\\$[A-Z]{3,20}\\+\\d{4}$");
 
-        //check if voting instrument is valid
+        // check if voting instrument is valid
         for (auto instrument : governance.voting_instrument())
         {
             if (!std::regex_match(instrument, pattern))
@@ -256,10 +260,11 @@ namespace
             }
         }
 
-        //if governance is staged stage leng must be at least 1 and at most 99
-        //if governance is not staged stage length must be 0
-        if (governance.type() == zera_txn::GOVERNANCE_TYPE::STAGED && (governance.stage_length_size() <= 1 || governance.stage_length_size() > 99))
+        // if governance is staged stage length must be at least 1 and at most 99
+        // if governance is not staged stage length must be 0
+        if (governance.type() == zera_txn::GOVERNANCE_TYPE::STAGED && (governance.stage_length_size() < 1 || governance.stage_length_size() > 99))
         {
+            logging::print(std::to_string(governance.stage_length_size()));
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance type is staged but less than 1 stage lengths are provided.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
         else if (governance.type() != zera_txn::GOVERNANCE_TYPE::STAGED && governance.stage_length_size() > 0)
@@ -267,9 +272,8 @@ namespace
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance type is not staged but stage lengths are provided.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
 
-
-        //if governance type is adaptive it cannot have proposal or voting period
-        //if governance type is not adaptive it must have proposal and voting period
+        // if governance type is adaptive it cannot have proposal or voting period
+        // if governance type is not adaptive it must have proposal and voting period
         if (governance.type() == zera_txn::GOVERNANCE_TYPE::ADAPTIVE && (governance.has_proposal_period() || governance.has_voting_period()))
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance type is adaptive but proposal period is provided.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
@@ -279,10 +283,10 @@ namespace
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance type is not adaptive but proposal period is not provided.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
 
-        //if governance type is staged or cycle it must have start timestamp (this is the timestamp that the governance starts)
-        if(governance.type() == zera_txn::GOVERNANCE_TYPE::STAGED || governance.type() == zera_txn::GOVERNANCE_TYPE::CYCLE)
+        // if governance type is staged or cycle it must have start timestamp (this is the timestamp that the governance starts)
+        if (governance.type() == zera_txn::GOVERNANCE_TYPE::STAGED || governance.type() == zera_txn::GOVERNANCE_TYPE::CYCLE)
         {
-            if(!governance.has_start_timestamp())
+            if (!governance.has_start_timestamp())
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance type is staged or cycle but no start timestamp is provided.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
             }
@@ -309,7 +313,6 @@ namespace
             {
                 return status;
             }
-
         }
 
         return ZeraStatus();
@@ -330,7 +333,7 @@ ZeraStatus block_process::check_parameters<zera_txn::InstrumentContract>(const z
 
     ZeraStatus status = check_restricted_duplicate(txn);
 
-    if(!status.ok())
+    if (!status.ok())
     {
         return status;
     }
@@ -346,19 +349,19 @@ ZeraStatus block_process::check_parameters<zera_txn::InstrumentContract>(const z
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Invalid uint256", zera_txn::TXN_STATUS::INVALID_UINT256);
         }
         uint256_t fee(txn->contract_fees().fee());
-        if(fee == 0)
+        if (fee == 0)
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Contract fee is 0", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
     }
-    if(txn->has_max_supply())
+    if (txn->has_max_supply())
     {
         if (!is_valid_uint256(txn->max_supply()))
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Invalid uint256", zera_txn::TXN_STATUS::INVALID_UINT256);
         }
     }
-    if(txn->has_coin_denomination())
+    if (txn->has_coin_denomination())
     {
         if (!is_valid_uint256(txn->coin_denomination().amount()))
         {
@@ -392,18 +395,17 @@ ZeraStatus block_process::check_parameters<zera_txn::InstrumentContract>(const z
     }
 
     std::regex pattern("^\\$" + txn->symbol() + "\\+\\d{4}$");
+
     if (!std::regex_match(txn->contract_id(), pattern))
     {
         return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Contract ID does match required pattern. " + txn->contract_id(), zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
     }
-
     status = check_governance(txn);
 
     if (!status.ok())
     {
         return status;
     }
-
     switch (txn->type())
     {
     case zera_txn::CONTRACT_TYPE::TOKEN:
@@ -442,40 +444,33 @@ ZeraStatus block_process::check_parameters<zera_txn::InstrumentContract>(const z
         return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: too many restricted keys.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
     }
 
-
     for (auto key : txn->restricted_keys())
     {
         std::string pub_key = wallets::get_public_key_string(key.public_key());
         HashType type = wallets::get_wallet_type(pub_key);
-        if (type != HashType::wallet_r && type != HashType::wallet_g && type != HashType::wallet_sc)
+
+        std::regex pattern1("^\\$[A-Z]{3,20}\\+\\d{4}$");
+
+        if ((type != HashType::wallet_r && type != HashType::wallet_g && type != HashType::wallet_sc && !std::regex_match(pub_key, pattern1)) || pub_key == txn->contract_id())
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Non restricted key in list.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
 
-        std::string gov_key = "gov_" + txn->contract_id();
-
-        if(type == HashType::wallet_g && pub_key != gov_key)
-        {
-            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Governance key is not allowed for non-token contracts.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
-        }
-
-        if(key.global())
+        if (key.global())
         {
             std::string wallet_adr = wallets::generate_wallet(key.public_key());
-            
-            if(db_wallet_nonce::exist(wallet_adr))
+
+            if (db_wallet_nonce::exist(wallet_adr))
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Restricted key already in use", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
             }
         }
 
-        if(key.expense_ratio() && key.time_delay() > 0)
+        if (key.expense_ratio() && key.time_delay() > 0)
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Restricted key cannot have time delay and expense ratio", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
         }
-
     }
-
     if (txn->type() != zera_txn::CONTRACT_TYPE::TOKEN && txn->has_cur_equiv_start())
     {
         return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: cur_equiv_start is only valid for token contracts.", zera_txn::TXN_STATUS::INVALID_CONTRACT_PARAMETERS);
@@ -491,7 +486,7 @@ ZeraStatus block_process::check_parameters<zera_txn::InstrumentContract>(const z
 
     status = check_premints(txn);
 
-    if(status.ok())
+    if (status.ok())
     {
         contract_price_tracker::update_price(txn->contract_id());
     }

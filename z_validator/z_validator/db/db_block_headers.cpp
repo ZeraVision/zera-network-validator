@@ -41,7 +41,6 @@ int db_headers_tag::get_multi_data_keys(std::string& start_key, int amount, std:
         logging::print("Reorg in progress. Database operation delayed.");
         return 0;
     }
-    std::lock_guard<std::mutex> lock(db_headers::db_mutex);
     std::vector<std::string> values;
 
     if (!database::get_multi_data(db_headers::db, start_key, amount, keys, values)){
@@ -66,7 +65,6 @@ int db_headers_tag::get_last_amount(std::vector<zera_validator::BlockHeader>& he
         logging::print("Reorg in progress. Database operation delayed.");
         return 0;
     }
-    std::lock_guard<std::mutex> lock(db_headers::db_mutex);
     std::vector<std::string> values;
     if (!database::get_last_amount(db_headers::db, keys, values, amount)) {
         return false;
@@ -86,7 +84,6 @@ int db_headers_tag::get_last_data(zera_validator::BlockHeader& block_header, std
         logging::print("Reorg in progress. Database operation delayed.");
         return 0;
     }
-    std::lock_guard<std::mutex> lock(db_headers::db_mutex);
     std::string last_value;
     if (!database::get_last_data(db_headers::db, last_key, last_value))
     {

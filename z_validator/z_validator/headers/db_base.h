@@ -3,9 +3,14 @@
 #include <vector>
 #include <string>
 #include "database.h"
+#include <rocksdb/db.h>
+#include <rocksdb/options.h>
+#include <rocksdb/write_batch.h>
+#include "validator.pb.h"
+
 #include <leveldb/db.h>
 #include <leveldb/write_batch.h>
-#include "validator.pb.h"
+#include <leveldb/options.h>
 
 template <typename T>
 class db_base
@@ -20,7 +25,7 @@ public:
     static int get_all_data(std::vector<std::string> &keys, std::vector<std::string> &values);
     static int get_single(const std::string &key, std::string &value);
     static int store_single(const std::string &key, const std::string &value);
-    static int store_batch(leveldb::WriteBatch &batch);
+    static int store_batch(rocksdb::WriteBatch &batch);
     static int remove_single(const std::string &key);
     static int remove_all();
     static int exist(const std::string &key);
@@ -31,10 +36,20 @@ public:
     static int compact_all();
 
 private:
-    static leveldb::DB *db;
-    static leveldb::Options options;
-    static leveldb::Status status;
+    static rocksdb::DB *db;
+    static rocksdb::Options options;
     static std::mutex db_mutex;
+};
+
+class db_sc_temp_tag
+{
+public:
+    static const char *const DB_NAME;
+};
+class db_gossip_tag
+{
+public:
+    static const char *const DB_NAME;
 };
 class db_system_tag
 {
@@ -186,7 +201,7 @@ class db_proposal_wallets_tag
 public:
     static const char *const DB_NAME;
 };
-class db_votes_tag
+class db_status_fee_tag
 {
 public:
     static const char *const DB_NAME;
@@ -271,6 +286,11 @@ class db_validator_unbond_tag
 public:
     static const char *const DB_NAME;
 };
+class db_allowance_tag
+{
+public:
+    static const char *const DB_NAME;
+};
 class db_validators_tag
 {
 public:
@@ -319,7 +339,7 @@ using db_validator_unbond = db_base<db_validator_unbond_tag>;     // store all v
 using db_proposal_ledger = db_base<db_proposal_ledger_tag>;       // store all governance details for each contract (staged/cycle) (key = contract_id) (value = ProposalLedger)
 using db_process_ledger = db_base<db_process_ledger_tag>;         // store all proposals that need to be processed (adaptive/staggered) (key = proposal_id) (value = timestamp - time to process) 
 using db_proposals = db_base<db_proposals_tag>;                   // store all proposals (key = proposal_id) (value = proposal)
-using db_votes = db_base<db_votes_tag>;                           // deprecated
+using db_status_fee = db_base<db_status_fee_tag>;                           // deprecated
 using db_process_adaptive_ledger = db_base<db_process_adaptive_ledger_tag>;
 using db_currency_equiv = db_base<db_currency_equiv_tag>;         // store all cur_equiv valuies of each contract (key = contract_id) (value = cur_equiv)
 using db_expense_ratio = db_base<db_expense_ratio_tag>;           // store the data and time an expense ratio txn can be called for a contract
@@ -351,3 +371,6 @@ using db_confirmed_blocks = db_base<db_confirmed_blocks_tag>;     // store all c
 using db_attestation_ledger = db_base<db_attestation_ledger_tag>; // store all different/verified attestations that have been recieved by validators for each block height (key = block_height) (value = AttetationLedger)
 using db_validator_archive = db_base<db_validator_archive_tag>;   // archive of all validator balances for each block height (key = block_height) (value = ValidatorArchive)
 using db_system = db_base<db_system_tag>;                         // store all system data (key = system data type) (value = system data) example. Version #
+using db_gossip = db_base<db_gossip_tag>;                         // store all txns ready for gossip (key = txn_hash) (value = txn data)
+using db_sc_temp = db_base<db_sc_temp_tag>;                       // store all temp state data for smart contracts (key = ???) (value = temp state data)
+using db_allowance = db_base<db_allowance_tag>;                   // store all allowance data for each wallet (key = pub_key + wallet_adr + contract_id) (value = allowance value)

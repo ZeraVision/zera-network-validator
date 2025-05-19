@@ -135,7 +135,7 @@ namespace
         txn->mutable_base()->set_fee_amount(txn_fee_amount.str());
     }
 
-    void set_base(zera_txn::BaseTXN *base, const SenderDataType &sender)
+    void set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
         std::string sc_auth = "sc_" + sender.smart_contract_instance;
         base->mutable_public_key()->set_smart_contract_auth(sc_auth);
@@ -145,7 +145,7 @@ namespace
         base->set_safe_send(false);
     }
 
-    void current_set_base(zera_txn::BaseTXN *base, const SenderDataType &sender)
+    void current_set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
         std::string sc_auth = "sc_" + sender.current_smart_contract_instance;
         base->mutable_public_key()->set_smart_contract_auth(sc_auth);
@@ -155,7 +155,7 @@ namespace
         base->set_safe_send(false);
     }
 
-    void set_auth(zera_txn::TransferAuthentication *auth, const SenderDataType &sender)
+    void set_auth(zera_txn::TransferAuthentication *auth, SenderDataType &sender)
     {
         std::string wallet_address = sender.wallet_address;
         uint64_t nonce = 0;
@@ -174,13 +174,13 @@ namespace
         input->set_contract_fee_percent(100000000);
     }
 
-    void set_output(zera_txn::OutputTransfers *output, const std::string &amount, const SenderDataType &sender)
+    void set_output(zera_txn::OutputTransfers *output, const std::string &amount, SenderDataType &sender)
     {
         output->set_amount(amount);
         output->set_wallet_address(sender.smart_contract_wallet);
     }
 
-    std::string process_txn(const SenderDataType &sender, const zera_txn::CoinTXN &txn)
+    std::string process_txn(SenderDataType &sender, const zera_txn::CoinTXN &txn)
     {
         std::string value;
         db_smart_contracts::get_single(sender.block_txns_key, value);
@@ -192,6 +192,7 @@ namespace
 
         if (status.ok())
         {
+            sender.txn_hashes.push_back(txn.base().hash());
             block_txns.add_coin_txns()->CopyFrom(txn);
             txn_hash_tracker::add_hash(txn.base().hash());
             uint64_t nonce = txn.base().nonce();
@@ -203,7 +204,7 @@ namespace
         return zera_txn::TXN_STATUS_Name(status.txn_status());
     }
 
-    std::string create_transfer(const SenderDataType &sender, const std::string &contract_id, const std::string &amount)
+    std::string create_transfer(SenderDataType &sender, const std::string &contract_id, const std::string &amount)
     {
         zera_txn::CoinTXN txn;
 
@@ -228,7 +229,7 @@ namespace
         return process_txn(sender, txn);
     }
 
-    std::string current_create_transfer(const SenderDataType &sender, const std::string &contract_id, const std::string &amount)
+    std::string current_create_transfer(SenderDataType &sender, const std::string &contract_id, const std::string &amount)
     {
         zera_txn::CoinTXN txn;
 
