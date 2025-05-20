@@ -1,4 +1,7 @@
 #include "native_function_utils.h"
+
+#include <algorithm>
+
 #include "smart_contract_service.h"
 #include "base58.h"
 #include "db_base.h"
@@ -476,7 +479,7 @@ WasmEdge_Result CurrentSmartContractWallet(void *Data, const WasmEdge_CallingFra
   int call_index = call_size - 1;
 
   std::string wallet = base58_encode(sender.wallet_chain[call_index]);
-  
+
   const char *val = wallet.c_str();
   const size_t len = wallet.length();
   WasmEdge_MemoryInstanceSetData(MemCxt, (unsigned char *)val, TargetPointer, len);
@@ -485,9 +488,8 @@ WasmEdge_Result CurrentSmartContractWallet(void *Data, const WasmEdge_CallingFra
   return WasmEdge_Result_Success;
 }
 
-
 WasmEdge_Result Compliance(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
-                          const WasmEdge_Value *In, WasmEdge_Value *Out)
+                           const WasmEdge_Value *In, WasmEdge_Value *Out)
 {
   uint32_t ContractPointer = WasmEdge_ValueGetI32(In[0]);
   uint32_t ContractSize = WasmEdge_ValueGetI32(In[1]);
@@ -520,7 +522,7 @@ WasmEdge_Result Compliance(void *Data, const WasmEdge_CallingFrameContext *CallF
   std::string wallet_adr;
   if (WasmEdge_ResultOK(Res1))
   {
-    std::string wallet_adr_temp(reinterpret_cast<char *>(ContractKey.data()), ContractSize);
+    std::string wallet_adr_temp(reinterpret_cast<char *>(WalletKey.data()), WalletSize);
     wallet_adr = wallet_adr_temp;
   }
   else
@@ -528,12 +530,14 @@ WasmEdge_Result Compliance(void *Data, const WasmEdge_CallingFrameContext *CallF
     return Res1;
   }
 
-  std::string wallet = base58_encode(wallet_adr);
+  auto wallet_vec = base58_decode(wallet_adr);
+  std::string wallet(wallet_vec.begin(), wallet_vec.end());
+
   std::string contract_data;
   zera_txn::InstrumentContract contract;
   std::string return_string = "false";
 
-  if(db_contracts::get_single(contract_id, contract_data) && contract.ParseFromString(contract_data))
+  if (db_contracts::get_single(contract_id, contract_data) && contract.ParseFromString(contract_data))
   {
     if (compliance::check_compliance(wallet, contract))
     {
@@ -548,3 +552,125 @@ WasmEdge_Result Compliance(void *Data, const WasmEdge_CallingFrameContext *CallF
 
   return WasmEdge_Result_Success;
 }
+
+WasmEdge_Result ComplianceLevels(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
+                                 const WasmEdge_Value *In, WasmEdge_Value *Out)
+{
+  uint32_t ContractPointer = WasmEdge_ValueGetI32(In[0]);
+  uint32_t ContractSize = WasmEdge_ValueGetI32(In[1]);
+
+  uint32_t WalletPointer = WasmEdge_ValueGetI32(In[2]);
+  uint32_t WalletSize = WasmEdge_ValueGetI32(In[3]);
+
+  uint32_t TargetPointer = WasmEdge_ValueGetI32(In[4]);
+
+  std::vector<unsigned char> ContractKey(ContractSize);
+  std::vector<unsigned char> WalletKey(WalletSize);
+
+  WasmEdge_MemoryInstanceContext *MemCxt = WasmEdge_CallingFrameGetMemoryInstance(CallFrameCxt, 0);
+
+  WasmEdge_Result Res = WasmEdge_MemoryInstanceGetData(MemCxt, ContractKey.data(), ContractPointer, ContractSize);
+
+  std::string contract_id;
+  if (WasmEdge_ResultOK(Res))
+  {
+    std::string contract_id_temp(reinterpret_cast<char *>(ContractKey.data()), ContractSize);
+    contract_id = contract_id_temp;
+  }
+  else
+  {
+    return Res;
+  }
+
+  WasmEdge_Result Res1 = WasmEdge_MemoryInstanceGetData(MemCxt, WalletKey.data(), WalletPointer, WalletSize);
+
+  std::string wallet_adr;
+  if (WasmEdge_ResultOK(Res1))
+  {
+    std::string wallet_adr_temp(reinterpret_cast<char *>(WalletKey.data()), WalletSize);
+    wallet_adr = wallet_adr_temp;
+  }
+  else
+  {
+    return Res1;
+  }
+
+  auto wallet_vec = base58_decode(wallet_adr);
+  std::string wallet(wallet_vec.begin(), wallet_vec.end());
+  std::string contract_data;
+  zera_txn::InstrumentContract contract;
+  std::string return_string = "";
+
+  std::vector<uint32_t> levels;
+
+  compliance::get_levels(wallet, contract_id, levels);
+
+  if (levels.size() > 0)
+  {
+    std::sort(levels.begin(), levels.end());
+
+    for (auto level : levels)
+    {
+      return_string += std::to_string(level) + ",";
+    }
+  }
+  else
+  {
+    return_string = "0";
+  }
+
+  logging::print("Compliance levels", return_string, true);
+  
+  const char *val = return_string.c_str();
+  const size_t len = return_string.length();
+  WasmEdge_MemoryInstanceSetData(MemCxt, (unsigned char *)val, TargetPointer, len);
+  Out[0] = WasmEdge_ValueGenI32(len);
+
+  return WasmEdge_Result_Success;
+}
+
+// WasmEdge_Result ContractWallets(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
+//                                 const WasmEdge_Value *In, WasmEdge_Value *Out)
+// {
+//   uint32_t ContractPointer = WasmEdge_ValueGetI32(In[0]);
+//   uint32_t ContractSize = WasmEdge_ValueGetI32(In[1]);
+
+//   uint32_t TargetPointer = WasmEdge_ValueGetI32(In[3]);
+
+//   std::vector<unsigned char> ContractKey(ContractSize);
+
+//   WasmEdge_MemoryInstanceContext *MemCxt = WasmEdge_CallingFrameGetMemoryInstance(CallFrameCxt, 0);
+
+//   WasmEdge_Result Res = WasmEdge_MemoryInstanceGetData(MemCxt, ContractKey.data(), ContractPointer, ContractSize);
+
+//   std::string contract_id;
+//   if (WasmEdge_ResultOK(Res))
+//   {
+//     std::string contract_id_temp(reinterpret_cast<char *>(ContractKey.data()), ContractSize);
+//     contract_id = contract_id_temp;
+//   }
+//   else
+//   {
+//     return Res;
+//   }
+
+//   SenderDataType sender = *(SenderDataType *)Data;
+
+//   std::string balance_data;
+//   size_t call_size = sender.wallet_chain.size();
+//   int call_index = call_size - 1;
+
+//   std::string wallet_key = sender.wallet_chain[call_index] + contract_id;
+
+//   if (!db_processed_wallets::get_single(wallet_key, balance_data) && !db_wallets::get_single(wallet_key, balance_data))
+//   {
+//     balance_data = "0";
+//   }
+
+//   const char *val = balance_data.c_str();
+//   const size_t len = balance_data.length();
+//   WasmEdge_MemoryInstanceSetData(MemCxt, (unsigned char *)val, TargetPointer, len);
+//   Out[0] = WasmEdge_ValueGenI32(len);
+
+//   return WasmEdge_Result_Success;
+// }

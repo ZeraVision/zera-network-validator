@@ -84,6 +84,7 @@ RUN mkdir -p /data/ccache
 RUN mkdir -p /data/blockchain
 RUN mkdir -p /data/logs
 RUN mkdir -p /data/reorgs
+RUN mkdir -p /data/copy
 ENV CCACHE_DIR /data/ccache
 
 

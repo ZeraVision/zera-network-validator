@@ -84,7 +84,6 @@ bool allowance_tracker::check_allowance(const std::string &wallet_adr, const zer
         while (std::mktime(&period_end_tm) < static_cast<std::time_t>(block_time))
         {
             period_end_tm.tm_mon += months_to_add;
-
             // Normalize the time structure
             period_end = static_cast<uint64_t>(std::mktime(&period_end_tm));
         }
@@ -105,7 +104,6 @@ bool allowance_tracker::check_allowance(const std::string &wallet_adr, const zer
         if (allowed_amount < input_temp)
         {
             allowance_state.mutable_period_end()->set_seconds(period_end);
-            //db_allowance::store_single("PRE_" + key, allowance_state.SerializeAsString());
             add_txn_allowance_state[txn_hash][key] = allowance_state;
             return false;
         }
@@ -113,12 +111,11 @@ bool allowance_tracker::check_allowance(const std::string &wallet_adr, const zer
         {
             allowance_state.set_used_amount((used_amount + input_temp).str());
             allowance_state.mutable_period_end()->set_seconds(period_end);
-            //db_allowance::store_single("PRE_" + key, allowance_state.SerializeAsString());
             add_txn_allowance_state[txn_hash][key] = allowance_state;
             return true;
         }
     }
-    else if (allowance_state.has_allowed_currency_equivelent())
+    else if (allowance_state.has_allowed_currency_equivalent())
     {
         uint256_t equiv;
         block_process::get_cur_equiv(contract_id, equiv);
@@ -130,13 +127,13 @@ bool allowance_tracker::check_allowance(const std::string &wallet_adr, const zer
 
         uint256_t total_amount = input_temp * equiv / denomination;
 
-        uint256_t allowed_currency_equivelent(allowance_state.allowed_currency_equivelent());
-        allowed_currency_equivelent = allowed_currency_equivelent - used_amount;
+        uint256_t allowed_currency_equivalent(allowance_state.allowed_currency_equivalent());
 
-        if (allowed_currency_equivelent < total_amount)
+        allowed_currency_equivalent = allowed_currency_equivalent - used_amount;
+
+        if (allowed_currency_equivalent < total_amount)
         {
             allowance_state.mutable_period_end()->set_seconds(period_end);
-            //db_allowance::store_single("PRE_" + key, allowance_state.SerializeAsString());
             add_txn_allowance_state[txn_hash][key] = allowance_state;
             return false;
         }
@@ -144,7 +141,6 @@ bool allowance_tracker::check_allowance(const std::string &wallet_adr, const zer
         {
             allowance_state.set_used_amount((used_amount + total_amount).str());
             allowance_state.mutable_period_end()->set_seconds(period_end);
-            //db_allowance::store_single("PRE_" + key, allowance_state.SerializeAsString());
             add_txn_allowance_state[txn_hash][key] = allowance_state;
             return true;
         }

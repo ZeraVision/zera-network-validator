@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <regex>
 #include <string>
+#include <filesystem>
 
 #include "db_base.h"
 #include "validator_network_client.h"
@@ -118,6 +119,12 @@ void Reorg::backup_blockchain(const std::string &block_height)
 
 void Reorg::restore_database(const std::string &block_height)
 {
+    std::string reorg_path = DB_REORGS; 
+    std::string block_path = DB_DIRECTORY;
+
+    std::filesystem::remove_all(reorg_path);
+    std::filesystem::remove_all(block_path);
+
     db_headers::restore_database(block_height);
     db_blocks::restore_database(block_height);
     db_contract_supply::restore_database(block_height);
@@ -180,7 +187,6 @@ void Reorg::restore_database(const std::string &block_height)
     db_transactions::remove_all();
     db_wallets_temp::remove_all();
     db_gossip::remove_all();
-    db_headers::remove_all();
 
     std::vector<std::string> keys;
     std::vector<std::string> values;

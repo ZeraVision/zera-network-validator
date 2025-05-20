@@ -78,6 +78,7 @@ set(SOURCES
    ${ZERA_DIR}/crypto/lottery.cpp
 
     #database
+    ${ZERA_DIR}/db/migrate_db.cpp
     ${ZERA_DIR}/db/reorg.cpp
     ${ZERA_DIR}/db/db_config.cpp
     ${ZERA_DIR}/db/database.cpp
