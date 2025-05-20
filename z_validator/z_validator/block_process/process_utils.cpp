@@ -244,7 +244,7 @@ bool block_process::check_qualified(const std::string &contract_id)
     return rate.qualified();
 }
 
-// function to get the cur equivelent of both the token and the fee token
+// function to get the cur equivalent of both the token and the fee token
 // 1.00$ = 1 000 000 000 000 000 000
 void block_process::get_cur_equiv(const std::string &contract_id, uint256_t &cur_equiv)
 {
@@ -411,6 +411,7 @@ void block_process::store_wallets()
         }
     }
 
+    
     db_wallets::store_batch(wallet_batch);
     db_wallets_temp::remove_all();
     db_wallet_lookup::store_batch(exist_batch);

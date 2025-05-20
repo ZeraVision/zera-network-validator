@@ -5,6 +5,7 @@
 #include "wallets.h"
 #include "../block_process/block_process.h"
 #include "../logging/logging.h"
+#include <thread>
 
 namespace
 {
@@ -45,6 +46,7 @@ namespace
             }
         }
 
+        //TODO - wtf??
         for (auto version : required_version.version())
         {
             if (validator.version() == version)
@@ -92,7 +94,11 @@ namespace
         std::vector<std::string> keys;
         std::string height_str = std::to_string(block_height);
         std::string archive_data;
-        db_validator_archive::get_single(height_str, archive_data);
+
+        while(!db_validator_archive::get_single(height_str, archive_data))
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
 
         zera_validator::ValidatorArchive validator_archive;
 

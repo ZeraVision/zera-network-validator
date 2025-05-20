@@ -125,6 +125,7 @@ void configure_self(zera_txn::ValidatorRegistration &registration_message)
     if (validator_config != "NONE" && validator_config != "")
     {
         Reorg::restore_database(validator_config);
+        ValidatorConfig::set_config();
     }
 
     ValidatorConfig::generate_keys();
@@ -242,7 +243,7 @@ int main()
     // open all databases
     open_dbs();
     ValidatorConfig::set_config();
-    logging::print("ZERA Validator v1.1.1", false);
+    logging::print("ZERA Validator v1.1.2", false);
 
 
     if(!check_config())
@@ -330,7 +331,7 @@ int main()
         logging::print("Heartbeat Successful! Joining Zera Network.", false);
     }
 
-    block_process::start_block_process_v2();
+    block_process::start_block_process();
 
     return 0;
 }

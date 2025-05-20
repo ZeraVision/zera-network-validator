@@ -19,11 +19,25 @@ ZeraStatus block_process::check_parameters<zera_txn::AllowanceTXN>(const zera_tx
 
     if(txn->authorize())
     {
-        if(txn->has_allowed_currency_equivelent() && txn->has_allowed_amount())
+        if(txn->has_allowed_currency_equivalent() && txn->has_allowed_amount())
         {
-            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "Both allowed_currency_equivelent and allowed_amount are set. Only one should be set.", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
+            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "Both allowed_currency_equivalent and allowed_amount are set. Only one should be set.", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
         }
 
+        if(txn->has_allowed_currency_equivalent())
+        {
+            if(!is_valid_uint256(txn->allowed_currency_equivalent()))
+            {
+                return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "allowed_currency_equivelent is not a valid uint256", zera_txn::TXN_STATUS::INVALID_UINT256);
+            }
+        }
+        else if(txn->has_allowed_amount())
+        {
+            if(!is_valid_uint256(txn->allowed_amount()))
+            {
+                return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "allowed_amount is not a valid uint256", zera_txn::TXN_STATUS::INVALID_UINT256);
+            }
+        }
         if(txn->has_period_months() && txn->has_period_seconds())
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "Both period_months and period_seconds are set. Only one should be set.", zera_txn::TXN_STATUS::INVALID_PARAMETERS);

@@ -41,7 +41,6 @@ public:
     static ZeraStatus get_contract(const std::string contract_id, zera_txn::InstrumentContract &contract);
     static ZeraStatus check_validator(const std::string &public_key, const zera_txn::TRANSACTION_TYPE &txn_type);
     static void start_block_process();
-    static void start_block_process_v2();
 
     template <typename TXType>
     static ZeraStatus check_parameters(const TXType *txn, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address = "");

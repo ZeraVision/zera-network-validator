@@ -1,7 +1,7 @@
 #ifndef _CONST_H_
 #define _CONST_H_
 
-constexpr int VERSION = 101001; //version of the validator
+constexpr int VERSION = 101002; //version of the validator
 //1000000000000000000 1 dollar
 //10000000000000000   1 cent
 //1 000 000 000 000 000 000 1 dollar
@@ -18,14 +18,13 @@ const unsigned long long b_HASH_FEE = 50000000000000000;                        
 const unsigned long long c_HASH_FEE = 10000000000000000;                         //1 cent
 const unsigned long long DELEGATED_VOTING_TXN_FEE = 50000000000000000;           //5 cents
 constexpr auto VALIDATOR_HOLDING_MINIMUM = "25000000000000000000000";            //25 000 dollars
-const unsigned long long VALIDATOR_MINIMUM_ZERA = 10000000000000;               //10 000 zera
+const unsigned long long VALIDATOR_MINIMUM_ZERA = 10000000000000;                //10 000 zera
 const long ATTESTATION_QUORUM = 51;                                              //51% quorum
-
 
 //PER BYTE VALUES 
 const unsigned long long GAS_FEE = 2500000000000;                                 //.000025 cent   
 const unsigned long long COIN_TXN_FEE = 150000000000000;                          //0.015 cents
-const unsigned long long STORAGE_FEE = 1000000000000000;                           //0.1 cents
+const unsigned long long STORAGE_FEE = 1000000000000000;                          //0.1 cents
 
 const unsigned long long CONTRACT_TXN_FEE = 860000000000000;                     //.086 cents
 const unsigned long long EXPENSE_RATIO_TXN_FEE = 4000000000000000;               //.10 cents
@@ -90,6 +89,7 @@ constexpr auto VALIDATOR_CONFIG = "/data/config/validator.conf";
 constexpr auto EXPLORER_CONFIG = "/data/config/explorer_servers.conf";
 constexpr auto DB_DIRECTORY = "/data/blockchain/";
 constexpr auto DB_REORGS = "/data/reorgs/";
+constexpr auto DB_COPY = "/data/copy/";
 constexpr auto DB_VALIDATOR = "/data/blockchain/validators";
 constexpr auto DB_BLOCK = "/data/blockchain/blocks";
 constexpr auto DB_BLOCK_HEADER = "/data/blockchain/block_headers";

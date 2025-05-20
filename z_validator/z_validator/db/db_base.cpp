@@ -805,16 +805,13 @@ int db_base<T>::restore_database(const std::string &backup_path) {
     std::lock_guard<std::mutex> lock(db_mutex);
 
     // Backup path
-    std::string full_backup_path = DB_REORGS + backup_path + "/" + std::string(T::DB_NAME);
+    std::string full_backup_path = DB_COPY + backup_path + "/" + std::string(T::DB_NAME);
     std::string database = DB_DIRECTORY + std::string(T::DB_NAME);
-
+    
     // Close the current database
     close_db();
 
     try {
-        // Remove existing database
-        std::filesystem::remove_all(database);
-
         // Ensure the database directory exists
         std::filesystem::create_directories(database);
 

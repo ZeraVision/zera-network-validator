@@ -328,7 +328,7 @@ ZeraStatus block_process::check_parameters<zera_txn::InstrumentContract>(const z
 
     if (db_contracts::exist(txn->contract_id()))
     {
-        return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Contract ID already exists", zera_txn::TXN_STATUS::INVALID_CONTRACT);
+        return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_contract.cpp: check_parameters: Contract ID already exists " + txn->contract_id(), zera_txn::TXN_STATUS::INVALID_CONTRACT);
     }
 
     ZeraStatus status = check_restricted_duplicate(txn);

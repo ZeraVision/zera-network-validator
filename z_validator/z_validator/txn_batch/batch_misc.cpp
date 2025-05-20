@@ -30,9 +30,9 @@ void txn_batch::batch_allowance_txns(const zera_txn::TXNS &txns, const std::map<
 
             state.mutable_public_key()->CopyFrom(allowance.base().public_key());
 
-            if (allowance.has_allowed_currency_equivelent())
+            if (allowance.has_allowed_currency_equivalent())
             {
-                state.set_allowed_currency_equivelent(allowance.allowed_currency_equivelent());
+                state.set_allowed_currency_equivalent(allowance.allowed_currency_equivalent());
             }
             else if (allowance.has_allowed_amount())
             {
@@ -99,7 +99,9 @@ void txn_batch::batch_required_version(const zera_txn::TXNS &txns, const std::ma
 {
     if (txns.has_required_version_txn())
     {
-        auto required_version = txns.required_version_txn();
+
+        zera_txn::RequiredVersion required_version = txns.required_version_txn();
+        required_version.CopyFrom(txns.required_version_txn());
 
         if (txn_passed.at(required_version.base().hash()))
         {
@@ -109,7 +111,6 @@ void txn_batch::batch_required_version(const zera_txn::TXNS &txns, const std::ma
             if (required_version.version(0) == 101000)
             {
                 db_system::store_single(TREASURY_KEY, "4Yg2ZeYrzMjVBXvU2YWtuZ7CzWR9atnQCD35TQj1kKcH");
-                logging::print("VERSION 101000 UPGRADE!");
                 ValidatorConfig::set_version(101000);
                 ValidatorConfig::set_treasury_wallet("4Yg2ZeYrzMjVBXvU2YWtuZ7CzWR9atnQCD35TQj1kKcH");
             }

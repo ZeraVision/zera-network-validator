@@ -207,6 +207,7 @@ ZeraStatus proposing::make_block(zera_validator::Block *block, const transaction
 
     if (txns.gov_keys.size() > 0)
     {
+        logging::print("Processing gov txns");
         ZeraStatus status = proposing::process_txns(txns.gov_values, txns.gov_keys, block, false);
         if (status.ok())
         {

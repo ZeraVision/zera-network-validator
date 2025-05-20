@@ -31,6 +31,7 @@ namespace
             }
         }
 
+        
         for (auto version : required_version.version())
         {
             if (validator.version() == version)
@@ -39,6 +40,9 @@ namespace
             }
         }
 
+        logging::print("validator version is not correct:", std::to_string(validator.version()), true);
+        logging::print("required version:", std::to_string(required_version.version(0)), true);
+        
         return false;
     }
 
@@ -240,7 +244,7 @@ void validator_utils::archive_balances(const std::string &block_height)
         }
 
         std::string encoded_key = base58_encode_public_key(keys[i]);
-        logging::print("archive balances:", encoded_key, total_wallet_balance.str());
+        logging::print("archive balances:", encoded_key, total_wallet_balance.str(), true);
         total_validator_balance += total_wallet_balance;
         zera_validator::ValidatorBalance validator_balance;
         validator_balance.mutable_public_key()->CopyFrom(validator.public_key());
