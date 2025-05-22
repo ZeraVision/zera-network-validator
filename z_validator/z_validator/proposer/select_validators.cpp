@@ -216,7 +216,9 @@ std::vector<zera_txn::Validator> SelectValidatorsByWeight(const std::string &see
         else
         {
             if (validator.ParseFromString(value))
+            {
                 validators.push_back(validator);
+            }
         }
     }
 
