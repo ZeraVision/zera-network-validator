@@ -28,7 +28,7 @@ namespace
             }
         }
 
-        // get the currency equivelent multiplier
+        // get the currency equivalent multiplier
         uint256_t fee_equiv;
         block_process::get_cur_equiv(txn->contract_fee_id(), fee_equiv);
         uint256_t denomination(contract.coin_denomination().amount());

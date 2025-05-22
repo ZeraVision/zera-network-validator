@@ -84,6 +84,7 @@ bool store_self(zera_txn::Validator *validator)
     validator->set_lite(false);
     validator->mutable_public_key()->set_single(ValidatorConfig::get_public_key());
     validator->set_online(true);
+
     validator->set_version(ValidatorConfig::get_version());
 
     for (auto staked_id : ValidatorConfig::get_staked_contract_id())

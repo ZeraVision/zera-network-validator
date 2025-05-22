@@ -168,8 +168,6 @@ WasmEdge_Result ExpenseRatio(void *Data, const WasmEdge_CallingFrameContext *Cal
     const char *val = status.c_str();
     const size_t len = status.length();
 
-    auto fee_address = sender.fee_address;
-
     WasmEdge_MemoryInstanceSetData(MemCxt, (unsigned char *)val, TargetPointer, len);
     Out[0] = WasmEdge_ValueGenI32(len);
 

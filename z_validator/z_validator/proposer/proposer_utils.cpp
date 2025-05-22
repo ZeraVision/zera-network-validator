@@ -278,6 +278,7 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
         status = proposing::unpack_process_wrapper(wrapper.mutable_required_version_txn(), block_txns, zera_txn::TRANSACTION_TYPE::REQUIRED_VERSION, timed, fee_address, wrapper.smart_contract_txn());
         if (status.ok())
         {
+            logging::print("Required version txn is passed and stored");
             txn_hash_tracker::add_hash(wrapper.required_version_txn().base().hash());
             block_txns->mutable_required_version_txn()->CopyFrom(wrapper.required_version_txn());
         }

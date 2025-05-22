@@ -153,16 +153,27 @@ void ValidatorConfig::set_config()
 
 	std::string temp_required_version;
 	uint32_t required_version = 100000;
-	if(db_system::get_single(REQUIRED_VERSION, temp_required_version))
+	zera_txn::RequiredVersion required_version_txn;
+	required_version_txn.add_version(required_version);
+
+	if(VERSION == 101001)
 	{
-		zera_txn::RequiredVersion required_version_txn;
+		required_version_txn.Clear();
+		required_version = 101001;
+		required_version_txn.add_version(required_version);
+		db_system::store_single(REQUIRED_VERSION, required_version_txn.SerializeAsString());
+	}
+	else if(db_system::get_single(REQUIRED_VERSION, temp_required_version))
+	{
+		required_version_txn.Clear();
 		required_version_txn.ParseFromString(temp_required_version);
 		required_version = required_version_txn.version(0);
 	}
 	else
 	{
-		db_system::store_single(REQUIRED_VERSION, std::to_string(required_version));
+		db_system::store_single(REQUIRED_VERSION, required_version_txn.SerializeAsString());
 	}
+	
 	set_required_version(required_version);
 
 	if (volume_config.is_open())

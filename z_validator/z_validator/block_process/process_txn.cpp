@@ -10,7 +10,7 @@ ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, con
 {
     std::string wallet_adr = wallets::generate_wallet(public_key);
     uint64_t wallet_nonce;
-
+    
     if (public_key.has_governance_auth())
     {
         if (db_gov_txn::exist(txn_hash))

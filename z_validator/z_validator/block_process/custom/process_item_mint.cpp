@@ -41,7 +41,7 @@ namespace
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_transfer: Compliance check failed. output wallet.", zera_txn::TXN_STATUS::COMPLIANCE_CHECK_FAILED);
         }
 
-        if(check_safe_send(txn->base(), txn->recipient_address()))
+        if(!check_safe_send(txn->base(), txn->recipient_address()))
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_mint.cpp : qualified_mint : cannot safe send", zera_txn::TXN_STATUS::INVALID_SAFE_SEND);
         }
@@ -158,12 +158,6 @@ ZeraStatus block_process::process_txn<zera_txn::ItemizedMintTXN>(const zera_txn:
 
     status_fees.set_base_contract_id(txn->base().fee_id());
     status_fees.set_base_fees(boost::lexical_cast<std::string>(txn_fee_amount));
-    status_fees.set_status(status.txn_status());
-
-    if (status.code() == ZeraStatus::Code::TXN_FAILED)
-    {
-        logging::print(status.read_status());
-    }
 
     status = item_mint(txn, contract, timed);
 
@@ -175,6 +169,11 @@ ZeraStatus block_process::process_txn<zera_txn::ItemizedMintTXN>(const zera_txn:
             status = supply_tracker::store_supply(contract, one);
         }
     }
+    else
+    {
+        logging::print(status.read_status());
+    }
+
     std::string wallet_adr = wallets::generate_wallet(txn->base().public_key());
     status_fees.set_status(status.txn_status());
     nonce_tracker::add_nonce(wallet_adr, nonce, txn->base().hash());

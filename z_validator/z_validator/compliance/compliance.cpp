@@ -102,3 +102,49 @@ bool compliance::check_compliance(const std::string &wallet_address, const zera_
     bool compliant = check_wallet(wallet_address, contract);
     return compliant;
 }
+
+void compliance::get_levels(const std::string &wallet_address, const std::string &contract_id, std::vector<uint32_t> &levels)
+{
+
+    std::string compliance_data;
+    zera_validator::WalletLookup wallet_lookup;
+
+    if(!db_contracts::exist(contract_id))
+    {
+        logging::print("Contract not found: " + contract_id);
+        return;
+    }
+
+    if (!db_wallet_lookup::get_single(wallet_address, compliance_data) || !wallet_lookup.ParseFromString(compliance_data))
+    {
+        logging::print("Wallet not found: " + base58_encode(wallet_address));
+        return;
+    }
+
+    zera_validator::BlockHeader header;
+    std::string key;
+    db_headers_tag::get_last_data(header, key);
+
+    auto compliance_map = wallet_lookup.mutable_compliance();
+
+    auto it = compliance_map->find(contract_id);
+
+    if (it == compliance_map->end())
+    {
+        logging::print("Contract not found in wallet: " + contract_id);
+        return;
+    }
+
+    for (auto level : it->second.levels())
+    {
+        logging::print("Level: " + std::to_string(level.level()) + " Expiry: " + std::to_string(level.expiry().seconds()));
+
+        if(header.timestamp().seconds() > level.expiry().seconds())
+        {
+            logging::print("Level expired: " + std::to_string(level.level()));
+            continue;
+        }
+        logging::print("Level not expired: " + std::to_string(level.level()));
+        levels.push_back(level.level());
+    }
+}
