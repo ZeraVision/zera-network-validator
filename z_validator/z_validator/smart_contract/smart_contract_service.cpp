@@ -538,8 +538,8 @@ WasmEdge_Result Call(void *, const WasmEdge_CallingFrameContext *CallFrameCxt,
   uint32_t ContractNamePointer = WasmEdge_ValueGetI32(In[0]);
   uint32_t ContractNameLength = WasmEdge_ValueGetI32(In[1]);
   //
-  uint32_t NoncePointer = WasmEdge_ValueGetI32(In[2]);
-  uint32_t NonceLength = WasmEdge_ValueGetI32(In[3]);
+  uint32_t InstancePointer = WasmEdge_ValueGetI32(In[2]);
+  uint32_t InstanceLength = WasmEdge_ValueGetI32(In[3]);
   //
   uint32_t FunctionNamePointer = WasmEdge_ValueGetI32(In[4]);
   uint32_t FunctionNameLength = WasmEdge_ValueGetI32(In[5]);
@@ -550,20 +550,20 @@ WasmEdge_Result Call(void *, const WasmEdge_CallingFrameContext *CallFrameCxt,
   uint32_t TargetPointer = WasmEdge_ValueGetI32(In[8]);
 
   unsigned char ContractName[ContractNameLength + 1];
-  unsigned char Nonce[NonceLength + 1];
+  unsigned char Instance[InstanceLength + 1];
   unsigned char FunctionName[FunctionNameLength + 1];
   unsigned char Parameters[ParametersLength];
 
   WasmEdge_MemoryInstanceContext *MemCxt = WasmEdge_CallingFrameGetMemoryInstance(CallFrameCxt, 0);
   // read data
   WasmEdge_Result Res = WasmEdge_MemoryInstanceGetData(MemCxt, ContractName, ContractNamePointer, ContractNameLength);
-  WasmEdge_Result Res2 = WasmEdge_MemoryInstanceGetData(MemCxt, Nonce, NoncePointer, NonceLength);
+  WasmEdge_Result Res2 = WasmEdge_MemoryInstanceGetData(MemCxt, Instance, InstancePointer, InstanceLength);
   WasmEdge_Result Res3 = WasmEdge_MemoryInstanceGetData(MemCxt, FunctionName, FunctionNamePointer, FunctionNameLength);
   WasmEdge_Result Res4 = WasmEdge_MemoryInstanceGetData(MemCxt, Parameters, ParametersPointer, ParametersLength);
 
   ContractName[ContractNameLength] = '\0'; // Ensure it's null-terminated
   FunctionName[FunctionNameLength] = '\0'; // Ensure it's null-terminated
-  Nonce[NonceLength] = '\0';
+  Instance[InstanceLength] = '\0';
   // Sometimes, when we pass 'retrieve' as function name, it results in 'retrieve??' here.
   // In C++, unsigned char FunctionName[8]; defines an array of 8 characters,
   // but when you use the %s format specifier in printf,
@@ -576,11 +576,11 @@ WasmEdge_Result Call(void *, const WasmEdge_CallingFrameContext *CallFrameCxt,
   if (WasmEdge_ResultOK(Res) && WasmEdge_ResultOK(Res2) && WasmEdge_ResultOK(Res3) && WasmEdge_ResultOK(Res4))
   {
     std::string ContractNameString1((char *)ContractName);
-    std::string NonceString1((char *)Nonce);
+    std::string InstanceString1((char *)Instance);
     std::string FunctionNameString((char *)FunctionName);
 
     logging::print("[Call] ContractName:", ContractNameString1);
-    logging::print("[Call] Nonce:", NonceString1);
+    logging::print("[Call] Instance:", InstanceString1);
     logging::print("[Call] FunctionName:", FunctionNameString);
 
     // split Parameters string into array of strings
@@ -601,8 +601,8 @@ WasmEdge_Result Call(void *, const WasmEdge_CallingFrameContext *CallFrameCxt,
     // read dependant instance contract
     //
     std::string ContractNameString((char *)ContractName);
-    std::string NonceString((char *)Nonce);
-    std::string instance_name = ContractNameString + "_" + NonceString;
+    std::string InstanceString((char *)Instance);
+    std::string instance_name = ContractNameString + "_" + InstanceString;
     //
     std::string raw_data;
     db_smart_contracts::get_single(instance_name, raw_data);
@@ -632,6 +632,7 @@ WasmEdge_Result Call(void *, const WasmEdge_CallingFrameContext *CallFrameCxt,
     sender.call_chain.push_back(instance_name);
     sender.wallet_chain.push_back(smart_contract_wallet);
     sender.current_smart_contract_instance = instance_name;
+    sender.emited.clear();
 
     // call
     //
@@ -667,9 +668,14 @@ WasmEdge_Result Call(void *, const WasmEdge_CallingFrameContext *CallFrameCxt,
       resultsString += "[res]" + val + "[end]";
     }
 
+    for (auto emit : sender.emited)
+    {
+      resultsString += "[emit]" + emit + "[end]";
+      sender_copy.emited.push_back(emit);
+    }
+
     sender_copy.gas_used = sender.gas_used;
     sender_copy.gas_available = sender.gas_available;
-    sender_copy.emited = sender.emited;
     sender_copy.current_depth = sender.current_depth;
 
     sender = sender_copy;
@@ -705,8 +711,8 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
   uint32_t ContractNamePointer = WasmEdge_ValueGetI32(In[0]);
   uint32_t ContractNameLength = WasmEdge_ValueGetI32(In[1]);
   //
-  uint32_t NoncePointer = WasmEdge_ValueGetI32(In[2]);
-  uint32_t NonceLength = WasmEdge_ValueGetI32(In[3]);
+  uint32_t InstancePointer = WasmEdge_ValueGetI32(In[2]);
+  uint32_t InstanceLength = WasmEdge_ValueGetI32(In[3]);
   //
   uint32_t FunctionNamePointer = WasmEdge_ValueGetI32(In[4]);
   uint32_t FunctionNameLength = WasmEdge_ValueGetI32(In[5]);
@@ -717,20 +723,20 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
   uint32_t TargetPointer = WasmEdge_ValueGetI32(In[8]);
 
   unsigned char ContractName[ContractNameLength + 1];
-  unsigned char Nonce[NonceLength + 1];
+  unsigned char Instance[InstanceLength + 1];
   unsigned char FunctionName[FunctionNameLength + 1];
   unsigned char Parameters[ParametersLength];
 
   WasmEdge_MemoryInstanceContext *MemCxt = WasmEdge_CallingFrameGetMemoryInstance(CallFrameCxt, 0);
   // read data
   WasmEdge_Result Res = WasmEdge_MemoryInstanceGetData(MemCxt, ContractName, ContractNamePointer, ContractNameLength);
-  WasmEdge_Result Res2 = WasmEdge_MemoryInstanceGetData(MemCxt, Nonce, NoncePointer, NonceLength);
+  WasmEdge_Result Res2 = WasmEdge_MemoryInstanceGetData(MemCxt, Instance, InstancePointer, InstanceLength);
   WasmEdge_Result Res3 = WasmEdge_MemoryInstanceGetData(MemCxt, FunctionName, FunctionNamePointer, FunctionNameLength);
   WasmEdge_Result Res4 = WasmEdge_MemoryInstanceGetData(MemCxt, Parameters, ParametersPointer, ParametersLength);
 
   ContractName[ContractNameLength] = '\0'; // Ensure it's null-terminated
   FunctionName[FunctionNameLength] = '\0'; // Ensure it's null-terminated
-  Nonce[NonceLength] = '\0';
+  Instance[InstanceLength] = '\0';
   // Sometimes, when we pass 'retrieve' as function name, it results in 'retrieve??' here.
   // In C++, unsigned char FunctionName[8]; defines an array of 8 characters,
   // but when you use the %s format specifier in printf,
@@ -743,7 +749,7 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
   if (WasmEdge_ResultOK(Res) && WasmEdge_ResultOK(Res2) && WasmEdge_ResultOK(Res3) && WasmEdge_ResultOK(Res4))
   {
     std::string ContractNameString1((char *)ContractName);
-    std::string NonceString1((char *)Nonce);
+    std::string InstanceString1((char *)Instance);
     std::string FunctionNameString((char *)FunctionName);
     // split Parameters string into array of strings
     //
@@ -764,8 +770,8 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
     // read dependant instance contract
     //
     std::string ContractNameString((char *)ContractName);
-    std::string NonceString((char *)Nonce);
-    std::string instance_name = ContractNameString + "_" + NonceString;
+    std::string InstanceString((char *)Instance);
+    std::string instance_name = ContractNameString + "_" + InstanceString;
     //
     std::string raw_data;
     db_smart_contracts::get_single(instance_name, raw_data);
@@ -785,6 +791,12 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
     sender.call_chain.push_back(instance_name);
     sender.wallet_chain.push_back(smart_contract_wallet);
     sender.current_smart_contract_instance = instance_name;
+    std::vector<std::string> sender_copy_emited;
+    if (ValidatorConfig::get_required_version() >= 101002)
+    {
+      sender_copy_emited = sender.emited;
+      sender.emited.clear();
+    }
 
     // call
     //
@@ -819,6 +831,16 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
       std::string val = std::any_cast<std::string>(results[i]);
       logging::print("result", std::to_string(i), ":", val);
       resultsString += "[res]" + val + "[end]";
+    }
+
+    if (ValidatorConfig::get_required_version() >= 101002)
+    {
+      for (auto emit : sender.emited)
+      {
+        resultsString += "[emit]" + emit + "[end]";
+        sender_copy_emited.push_back(emit);
+      }
+      sender.emited = sender_copy_emited;
     }
 
     sender.call_chain.pop_back();
@@ -866,9 +888,7 @@ WasmEdge_Result Emit(void *Data, const WasmEdge_CallingFrameContext *CallFrameCx
 
     if (!storage_fees(sender, storage_fee))
     {
-      int value = 0;
-      Out[0] = WasmEdge_ValueGenI32(value);
-      return WasmEdge_Result_Success;
+      return WasmEdge_Result_Terminate;
     }
 
     // emit
@@ -1236,7 +1256,7 @@ WasmEdge_ModuleInstanceContext *CreateExternModule()
                      ReturnList_Version, sizeof(ReturnList_Version) / sizeof(ReturnList_Version[0]),
                      Version, "version");
   //
-  // add "emit" function
+
   enum WasmEdge_ValType ParamList_Emit[2] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32};
   enum WasmEdge_ValType ReturnList_Emit[1] = {WasmEdge_ValType_I32};
   CreateHostFunction(HostModCxt,
@@ -1244,29 +1264,40 @@ WasmEdge_ModuleInstanceContext *CreateExternModule()
                      ReturnList_Emit, sizeof(ReturnList_Emit) / sizeof(ReturnList_Emit[0]),
                      Emit, "emit");
 
-  // add "emit" function
-  enum WasmEdge_ValType ParamList_Compliance[4] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ParamList_Compliance[5] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
   enum WasmEdge_ValType ReturnList_Compliance[1] = {WasmEdge_ValType_I32};
   CreateHostFunction(HostModCxt,
                      ParamList_Compliance, sizeof(ParamList_Compliance) / sizeof(ParamList_Compliance[0]),
                      ReturnList_Compliance, sizeof(ReturnList_Compliance) / sizeof(ReturnList_Compliance[0]),
                      Compliance, "compliance");
 
-  // add "emit" function
-  enum WasmEdge_ValType ParamList_Vote[4] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ParamList_ComplianceLevels[5] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_ComplianceLevels[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_Compliance, sizeof(ParamList_ComplianceLevels) / sizeof(ParamList_ComplianceLevels[0]),
+                     ReturnList_Compliance, sizeof(ReturnList_ComplianceLevels) / sizeof(ReturnList_ComplianceLevels[0]),
+                     ComplianceLevels, "compliance_levels");
+
+  enum WasmEdge_ValType ParamList_Vote[7] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
   enum WasmEdge_ValType ReturnList_Vote[1] = {WasmEdge_ValType_I32};
   CreateHostFunction(HostModCxt,
                      ParamList_Vote, sizeof(ParamList_Vote) / sizeof(ParamList_Vote[0]),
                      ReturnList_Vote, sizeof(ReturnList_Vote) / sizeof(ReturnList_Vote[0]),
                      Vote, "vote");
-                     
-  // add "emit" function
-  enum WasmEdge_ValType ParamList_ExpenseRatio[4] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+
+  enum WasmEdge_ValType ParamList_ExpenseRatio[7] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
   enum WasmEdge_ValType ReturnList_ExpenseRatio[1] = {WasmEdge_ValType_I32};
   CreateHostFunction(HostModCxt,
                      ParamList_ExpenseRatio, sizeof(ParamList_ExpenseRatio) / sizeof(ParamList_ExpenseRatio[0]),
                      ReturnList_ExpenseRatio, sizeof(ReturnList_ExpenseRatio) / sizeof(ReturnList_ExpenseRatio[0]),
                      ExpenseRatio, "expense_ratio");
+
+  // enum WasmEdge_ValType ParamList_ContractWallets[3] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  // enum WasmEdge_ValType ReturnList_ContractWallets[1] = {WasmEdge_ValType_I32};
+  // CreateHostFunction(HostModCxt,
+  //                    ParamList_ContractWallets, sizeof(ParamList_ContractWallets) / sizeof(ParamList_ContractWallets[0]),
+  //                    ReturnList_ContractWallets, sizeof(ReturnList_ContractWallets) / sizeof(ReturnList_ContractWallets[0]),
+  //                    ContractWallets, "contract_wallets");
 
   return HostModCxt;
 }

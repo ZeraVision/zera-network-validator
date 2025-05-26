@@ -50,8 +50,8 @@ service ValidatorService{
 }
 
 message AllowanceState{
-    optional string allowed_currency_equivelent = 1; //1000000000000000000 = $1.00 can only have either this or allowed_amount
-    optional string allowed_amount = 2;              //Amount of parts of token can only have either this or allowed_currency_equivelent
+    optional string allowed_currency_equivalent = 1; //1000000000000000000 = $1.00 can only have either this or allowed_amount
+    optional string allowed_amount = 2;              //Amount of parts of token can only have either this or allowed_currency_equivalent
     optional uint32 period_months = 3;               //How many months until this allowance resets, can only have this or period_seconds
     optional uint32 period_seconds = 4;              //How many seconds until this allowance resets, can only have this or period_months
     google.protobuf.Timestamp period_end = 5;        //When the allowance period ends, and will reset
@@ -386,7 +386,6 @@ message BalanceTracker{
     // repeated bytes wallet_addresses = 1;
     // repeated string balances = 2;
 }
-
 message TokenLookup{
     repeated string tokens = 1;
 }

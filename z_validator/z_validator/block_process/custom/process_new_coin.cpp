@@ -435,7 +435,6 @@ namespace
         int x = 0;
         for (auto input : txn->input_transfers())
         {
-
             if (!is_valid_uint256(input.amount()))
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_transfers: Invalid uint256", zera_txn::TXN_STATUS::INVALID_UINT256);
@@ -468,6 +467,7 @@ namespace
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_transfer: Compliance check failed. input wallet.", zera_txn::TXN_STATUS::COMPLIANCE_CHECK_FAILED);
             }
+
             uint256_t increment(input.amount());
             uint256_t sender_balance;
 
@@ -699,7 +699,6 @@ ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN
         }
         gov = true;
     }
-
     if (timed && txn->auth().public_key_size() > 1)
     {
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_coin.cpp: process_txn: Timed transactions cannot have multiple public keys", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
@@ -745,7 +744,7 @@ ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN
     int x = 0;
 
     if (allowance && status.ok())
-    {
+    {   
         std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(0));
         uint64_t txn_nonce = txn->auth().nonce(0);
         nonce_tracker::add_nonce(wallet_adr, txn_nonce, txn->base().hash());

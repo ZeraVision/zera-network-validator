@@ -98,6 +98,8 @@ private:
         TXType *txn = new TXType();
         txn->CopyFrom(*request);
 
+
+
         try
         {
             ThreadPool::enqueueTask([txn, client_ip](){ 
@@ -153,7 +155,6 @@ private:
             logging::print("Error: Protobuf object is null or not initialized in ProcessRequest");
             return;
         }
-
         TXType *txn = new TXType();
         txn->CopyFrom(*request);
 
