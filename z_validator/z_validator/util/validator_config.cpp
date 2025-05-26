@@ -156,12 +156,18 @@ void ValidatorConfig::set_config()
 	zera_txn::RequiredVersion required_version_txn;
 	required_version_txn.add_version(required_version);
 
-	if(db_system::get_single(REQUIRED_VERSION, temp_required_version))
+	if(VERSION == 101001)
+	{
+		required_version_txn.Clear();
+		required_version = 101001;
+		required_version_txn.add_version(required_version);
+		db_system::store_single(REQUIRED_VERSION, required_version_txn.SerializeAsString());
+	}
+	else if(db_system::get_single(REQUIRED_VERSION, temp_required_version))
 	{
 		required_version_txn.Clear();
 		required_version_txn.ParseFromString(temp_required_version);
 		required_version = required_version_txn.version(0);
-		logging::print("what the:", std::to_string(required_version_txn.version(0)), true);
 	}
 	else
 	{

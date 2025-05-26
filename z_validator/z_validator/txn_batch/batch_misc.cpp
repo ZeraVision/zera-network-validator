@@ -111,7 +111,6 @@ void txn_batch::batch_required_version(const zera_txn::TXNS &txns, const std::ma
             if (required_version.version(0) == 101000)
             {
                 db_system::store_single(TREASURY_KEY, "4Yg2ZeYrzMjVBXvU2YWtuZ7CzWR9atnQCD35TQj1kKcH");
-                ValidatorConfig::set_version(101000);
                 ValidatorConfig::set_treasury_wallet("4Yg2ZeYrzMjVBXvU2YWtuZ7CzWR9atnQCD35TQj1kKcH");
             }
         }

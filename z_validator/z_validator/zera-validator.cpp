@@ -40,7 +40,7 @@
 #include "hex_conversion.h"
 #include "crypto/merkle.h"
 #include "logging/logging.h"
-#include <random>  // For random number generation
+#include <random> // For random number generation
 
 void configure_rate_limiters()
 {
@@ -159,66 +159,6 @@ void create_heartbeat(zera_txn::ValidatorHeartbeat &heartbeat, const uint64_t &n
     std::string hash(hash_vec.begin(), hash_vec.end());
     base->set_hash(hash);
 }
-std::string create_validator_block(zera_txn::ValidatorRegistration &registration_message)
-{
-    zera_validator::Block block;
-    zera_txn::ValidatorRegistration *registration = block.mutable_transactions()->add_validator_registration_txns();
-    registration->CopyFrom(registration_message);
-    zera_validator::BlockHeader *header = block.mutable_block_header();
-    google::protobuf::Timestamp *ts = header->mutable_timestamp();
-    google::protobuf::Timestamp now_ts = google::protobuf::util::TimeUtil::GetCurrentTime();
-
-    ts->set_seconds(now_ts.seconds());
-    ts->set_nanos(now_ts.nanos());
-    std::string last_key;
-    zera_validator::BlockHeader last_header;
-    db_headers_tag::get_last_data(last_header, last_key);
-
-    header->set_previous_block_hash(last_header.hash());
-    header->set_block_height(last_header.block_height() + 1);
-    header->set_version(ValidatorConfig::get_version());
-    registration->mutable_validator()->set_last_heartbeat(header->block_height());
-    zera_txn::TXNStatusFees *status_fees = block.mutable_transactions()->add_txn_fees_and_status();
-    status_fees->set_base_contract_id("$ZRA+0000");
-    status_fees->set_contract_fees("0");
-    status_fees->set_base_fees("0");
-    status_fees->set_status(zera_txn::TXN_STATUS::OK);
-    status_fees->set_txn_hash(registration_message.base().hash());
-
-    uint64_t nonce = registration_message.base().nonce() + 1;
-    zera_txn::ValidatorHeartbeat *heartbeat = block.mutable_transactions()->add_validator_heartbeat_txns();
-    create_heartbeat(*heartbeat, nonce);
-
-    zera_txn::TXNStatusFees *status_fees2 = block.mutable_transactions()->add_txn_fees_and_status();
-    status_fees2->set_base_contract_id("$ZRA+0000");
-    status_fees2->set_contract_fees("0");
-    status_fees2->set_base_fees("0");
-    status_fees2->set_status(zera_txn::TXN_STATUS::OK);
-    status_fees2->set_txn_hash(heartbeat->base().hash());
-
-    merkle_tree::build_merkle_tree(&block);
-
-    signatures::sign_block_proposer(&block, ValidatorConfig::get_gen_key_pair());
-    std::vector<uint8_t> hash = Hashing::sha256_hash(block.SerializeAsString());
-    std::string hash_str(hash.begin(), hash.end());
-    header->set_hash(hash_str);
-
-    std::string wallet_address = wallets::generate_wallet_single(ValidatorConfig::get_public_key());
-    nonce_tracker::add_used_nonce(wallet_address, registration_message.base().nonce());
-    nonce_tracker::add_used_nonce(wallet_address, heartbeat->base().nonce());
-
-    std::string write_block;
-    std::string write_header;
-
-    std::string key = block_utils::block_to_write(&block, write_block, write_header);
-
-    // Store data in database
-    db_blocks::store_single(key, write_block);
-    db_headers::store_single(key, write_header);
-    db_hash_index::store_single(block.block_header().hash(), key);
-    block_process::store_txns(&block, true);
-    return hash_str;
-}
 
 void send_heartbeat(const uint64_t &nonce)
 {
@@ -243,10 +183,9 @@ int main()
     // open all databases
     open_dbs();
     ValidatorConfig::set_config();
-    logging::print("ZERA Validator v1.1.2", false);
+    logging::print("ZERA Validator v1.1.3", false);
 
-
-    if(!check_config())
+    if (!check_config())
     {
         logging::print("Configuration is not set correctly. Please check your configuration file.");
         return -1;
@@ -291,11 +230,6 @@ int main()
         return -1;
     }
 
-    if (!heartbeat)
-    {
-        create_validator_block(registration_message);
-    }
-
     restricted_symbols();
 
     zera_validator::BlockHeader last_header;
@@ -303,33 +237,24 @@ int main()
     db_headers_tag::get_last_data(last_header, last_key);
     std::string last_height = std::to_string(last_header.block_height());
 
-    if (!heartbeat)
-    {
-        validator_utils::archive_balances(last_height);
-    }
     std::thread thread1(RunValidator);
     std::thread thread2(RunClient);
     std::thread thread3;
     std::thread thread4(ValidatorNetworkClient::GossipThread);
 
-
-
-    if(ValidatorConfig::get_api_port() != "0")
+    if (ValidatorConfig::get_api_port() != "0")
     {
         logging::print("Starting API Service on port: " + ValidatorConfig::get_api_port(), false);
         thread3 = std::thread(RunAPI);
     }
 
-    if (heartbeat)
-    {
-        uint64_t nonce = registration_message.base().nonce() + 1;
-        send_heartbeat(nonce);
-        validator_utils::archive_balances(last_height);
-        logging::print("Sending Heartbeat to Zera Network... 10 seconds", false);
-        std::this_thread::sleep_for(std::chrono::seconds(10));
-        ValidatorNetworkClient::StartSyncBlockchain(true);
-        logging::print("Heartbeat Successful! Joining Zera Network.", false);
-    }
+    uint64_t nonce = registration_message.base().nonce() + 1;
+    send_heartbeat(nonce);
+    validator_utils::archive_balances(last_height);
+    logging::print("Sending Heartbeat to Zera Network... 10 seconds", false);
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    ValidatorNetworkClient::StartSyncBlockchain(true);
+    logging::print("Heartbeat Successful! Joining Zera Network.", false);
 
     block_process::start_block_process();
 
