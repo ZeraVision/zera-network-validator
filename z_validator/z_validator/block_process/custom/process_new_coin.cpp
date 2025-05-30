@@ -510,6 +510,9 @@ namespace
 
         if (input_amount != output_amount)
         {
+            logging::print("input_amount", input_amount.str());
+            logging::print("output_amount", output_amount.str());
+            
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_transfers: input amount does not equal output amount", zera_txn::TXN_STATUS::INVALID_PARAMETERS);
         }
 

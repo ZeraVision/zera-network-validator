@@ -84,7 +84,6 @@ namespace
                 {
                     remove_y.push_back(y);
                     remove_x.push_back(x);
-                    logging::print("Error: Validator with key", base58_pub, " does not exist.", true);
                 }
 
                 support_amount += validator_value;
@@ -470,14 +469,12 @@ void ValidatorNetworkClient::ProcessBlockAttestationAsync(std::vector<zera_valid
     }
     else
     {
-        logging::print("sender does not support block.");
         base58_hash = base58_encode(response.supported_block().block_header().hash());
     }
     auto it = ledger.mutable_block_attestation_responses()->find(base58_hash);
 
     for (auto support : ledger.block_attestation_responses())
     {
-        logging::print("ValidatorNetworkClient::ProcessBlockAttestationAsync:", support.first);
 
         if (it != ledger.block_attestation_responses().end())
         {

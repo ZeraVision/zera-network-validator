@@ -2,6 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/empty.proto";
 import "txn.proto";
+import "validator.proto";
 
 package zera_api;
 
@@ -16,6 +17,7 @@ service APIService{
     rpc Items(ItemRequest) returns (ItemResponse);
     rpc Denomination(DenominationRequest) returns (DenominationResponse);
     rpc Database(DatabaseRequest) returns (DatabaseResponse);
+    rpc Block(BlockRequest) returns (BlockResponse);
 }
 
 
@@ -37,6 +39,19 @@ enum DATABASE_TYPE{
     EXPENSE_RATIO = 14;
     ATTESTATION = 15;
     CONFIRMED_BLOCKS = 16;
+}
+
+//Block
+message BlockRequest{
+    oneof payload{
+    uint64 block_height = 1;
+    string block_hash = 2;
+    }
+    bool encoded = 3;
+}
+
+message BlockResponse{
+    zera_validator.Block block = 1;
 }
 //NONCE
 message NonceRequest{

@@ -26,12 +26,16 @@ class proposer_tracker{
 class txn_hash_tracker{
     public:
     static void add_hash(const std::string& txn_hash);
-    static void get_hash(std::vector<std::string> &txn_hash, std::vector<std::string> &allowance_txn_hash);
+    static void add_sc_hash(const std::string &txn_hash);
     static void add_allowance_hash(const std::string &txn_hash);
+    static void add_sc_to_hash();
+    static void clear_sc_txn_hash();
+    static void get_hash(std::vector<std::string> &txn_hash, std::vector<std::string> &allowance_txn_hash);
 
     private:
     static std::vector<std::string> allowance_txn_hash_vec;
     static std::vector<std::string> txn_hash_vec;
+    static std::vector<std::string> sc_txn_hash_vec;
     static std::mutex mtx;
 };
 
@@ -55,6 +59,9 @@ class nonce_tracker
 {
 
     public:
+    static void store_sc_nonce(const std::string &wallet_address, const uint64_t &nonce);
+    static void add_sc_to_used_nonce();
+    static void clear_sc_nonce();
     static bool remove_pre_nonce(const std::string &wallet_address, uint64_t &nonce);
     static void add_nonce(const std::string &wallet_address, const uint64_t &nonce, const std::string &txn_hash);
     static bool get_nonce(const std::string& wallet_address, uint64_t &nonce);
@@ -63,6 +70,7 @@ class nonce_tracker
     private:
     static std::map<std::string, uint64_t> wallet_nonce;
     static std::map<std::string, uint64_t> used_nonce;
+    static std::map<std::string, uint64_t> sc_nonce;
     static std::mutex mtx;
     static std::mutex mtx_used;
 };

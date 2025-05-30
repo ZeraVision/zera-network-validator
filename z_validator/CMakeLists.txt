@@ -25,6 +25,35 @@ set(SOURCES
     #main
     ${ZERA_DIR}/zera-validator.cpp
 
+     #grpc
+     ${ZERA_DIR}/grpc/api/block.cpp
+     ${ZERA_DIR}/grpc/api/database.cpp
+     ${ZERA_DIR}/grpc/api/ace_tokens.cpp
+     ${ZERA_DIR}/grpc/api/api_service.cpp
+     ${ZERA_DIR}/grpc/api/balance.cpp
+     ${ZERA_DIR}/grpc/api/base_fee.cpp
+     ${ZERA_DIR}/grpc/api/contract_fee.cpp
+     ${ZERA_DIR}/grpc/api/denomination.cpp
+     ${ZERA_DIR}/grpc/api/items.cpp
+     ${ZERA_DIR}/grpc/api/nonce.cpp
+
+        #grpcs
+        ${ZERA_DIR}/grpc/p2p/client/gossip_client.cpp
+        ${ZERA_DIR}/grpc/p2p/client/attestation_client.cpp
+        ${ZERA_DIR}/grpc/p2p/client/block_sync_client.cpp
+        ${ZERA_DIR}/grpc/p2p/client/validator_network_client.cpp
+    
+        ${ZERA_DIR}/grpc/client/client_network_service.cpp
+        
+        ${ZERA_DIR}/grpc/p2p/server/attestation_service.cpp
+         ${ZERA_DIR}/grpc/p2p/server/block_sync_service.cpp
+         ${ZERA_DIR}/grpc/p2p/server/broadcast_service.cpp
+         ${ZERA_DIR}/grpc/p2p/api/nonce_service.cpp
+         ${ZERA_DIR}/grpc/p2p/api/indexer_voting_service.cpp
+         ${ZERA_DIR}/grpc/p2p/api/balance_service.cpp
+         ${ZERA_DIR}/grpc/p2p/server/validator_network_service.cpp
+         ${ZERA_DIR}/grpc/p2p/server/gossip_service.cpp
+
      #smart contracts
      ${ZERA_DIR}/smart_contract/native_functions/native_function_vote.cpp
      ${ZERA_DIR}/smart_contract/native_functions/native_function_expense_ratio.cpp
@@ -87,34 +116,6 @@ set(SOURCES
     ${ZERA_DIR}/db/db_blocks.cpp
     ${ZERA_DIR}/db/db_validators.cpp
 
-    #grpcs
-    ${ZERA_DIR}/grpc/p2p/client/gossip_client.cpp
-        ${ZERA_DIR}/grpc/p2p/client/attestation_client.cpp
-        ${ZERA_DIR}/grpc/p2p/client/block_sync_client.cpp
-        ${ZERA_DIR}/grpc/p2p/client/validator_network_client.cpp
-        
-
-        #grpc
-        ${ZERA_DIR}/grpc/api/database.cpp
-        ${ZERA_DIR}/grpc/api/ace_tokens.cpp
-        ${ZERA_DIR}/grpc/api/api_service.cpp
-        ${ZERA_DIR}/grpc/api/balance.cpp
-        ${ZERA_DIR}/grpc/api/base_fee.cpp
-        ${ZERA_DIR}/grpc/api/contract_fee.cpp
-        ${ZERA_DIR}/grpc/api/denomination.cpp
-        ${ZERA_DIR}/grpc/api/items.cpp
-        ${ZERA_DIR}/grpc/api/nonce.cpp
-    
-        ${ZERA_DIR}/grpc/client/client_network_service.cpp
-        
-        ${ZERA_DIR}/grpc/p2p/server/attestation_service.cpp
-         ${ZERA_DIR}/grpc/p2p/server/block_sync_service.cpp
-         ${ZERA_DIR}/grpc/p2p/server/broadcast_service.cpp
-         ${ZERA_DIR}/grpc/p2p/api/nonce_service.cpp
-         ${ZERA_DIR}/grpc/p2p/api/indexer_voting_service.cpp
-         ${ZERA_DIR}/grpc/p2p/api/balance_service.cpp
-         ${ZERA_DIR}/grpc/p2p/server/validator_network_service.cpp
-         ${ZERA_DIR}/grpc/p2p/server/gossip_service.cpp
 
         #custom
         ${ZERA_DIR}/block_process/custom/process_proposal.cpp
