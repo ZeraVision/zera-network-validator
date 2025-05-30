@@ -140,18 +140,21 @@ namespace
                 logging::print("result", std::to_string(i), ":", val);
                 status_fees.add_smart_contract_result(val);
             }
-
+            txn_hash_tracker::add_sc_to_hash();
+            nonce_tracker::add_sc_to_used_nonce();
             db_sc_temp::remove_all();
             return ZeraStatus();
         }
         catch (...)
         {
             uint32_t version = ValidatorConfig::get_required_version();
+            logging::print("FAILED EXECUTEversion:", std::to_string(version));    
 
             if (version >= 101001)
             {
                 logging::print("gas fees:", std::to_string(used_gas));
-
+                nonce_tracker::clear_sc_nonce();
+                txn_hash_tracker::clear_sc_txn_hash();
                 for (auto hash : txn_hashes)
                 {
                     balance_tracker::remove_txn_balance(hash);
@@ -179,6 +182,8 @@ namespace
 
             }
 
+            txn_hash_tracker::add_sc_to_hash();
+            nonce_tracker::add_sc_to_used_nonce();
             db_sc_temp::remove_all();
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "Failed to execute txn", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
         }

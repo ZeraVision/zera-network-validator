@@ -670,8 +670,7 @@ WasmEdge_Result Call(void *, const WasmEdge_CallingFrameContext *CallFrameCxt,
 
     for (auto emit : sender.emited)
     {
-      resultsString += "[emit]" + emit + "[end]";
-      sender_copy.emited.push_back(emit);
+      resultsString += "[res]" + emit + "[end]";
     }
 
     sender_copy.gas_used = sender.gas_used;
@@ -792,6 +791,7 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
     sender.wallet_chain.push_back(smart_contract_wallet);
     sender.current_smart_contract_instance = instance_name;
     std::vector<std::string> sender_copy_emited;
+
     if (ValidatorConfig::get_required_version() >= 101002)
     {
       sender_copy_emited = sender.emited;
@@ -837,8 +837,7 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
     {
       for (auto emit : sender.emited)
       {
-        resultsString += "[emit]" + emit + "[end]";
-        sender_copy_emited.push_back(emit);
+        resultsString += "[res]" + emit + "[end]";
       }
       sender.emited = sender_copy_emited;
     }

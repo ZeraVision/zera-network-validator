@@ -786,6 +786,7 @@ namespace
         db_blocks::store_single(key1, block_write);
         db_headers::store_single(key1, header_write);
         db_hash_index::store_single(block.block_header().hash(), key1);
+        db_hash_index::store_single(std::to_string(block.block_header().block_height()), key1);
     }
 
     void store_genesis_premint(const zera_validator::Block &block)
@@ -984,6 +985,7 @@ namespace
         db_blocks::store_single(key1, block_write);
         db_headers::store_single(key1, header_write);
         db_hash_index::store_single(manual_block.block_header().hash(), key1);
+        db_hash_index::store_single(std::to_string(manual_block.block_header().block_height()), key1);
         block_process::store_txns(&manual_block, true, broadcast);
         return ZeraStatus();
     }

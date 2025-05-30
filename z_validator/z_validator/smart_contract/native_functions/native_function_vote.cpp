@@ -58,9 +58,9 @@ namespace
         {
             sender.txn_hashes.push_back(txn.base().hash());
             block_txns.add_governance_votes()->CopyFrom(txn);
-            txn_hash_tracker::add_hash(txn.base().hash());
+            txn_hash_tracker::add_sc_hash(txn.base().hash());
             uint64_t nonce = txn.base().nonce();
-            nonce_tracker::add_used_nonce(sender.smart_contract_wallet, nonce);
+            nonce_tracker::store_sc_nonce(sender.smart_contract_wallet, nonce);
         }
         db_smart_contracts::store_single(sender.block_txns_key, block_txns.SerializeAsString());
 

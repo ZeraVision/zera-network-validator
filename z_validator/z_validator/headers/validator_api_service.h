@@ -31,6 +31,7 @@ public:
     grpc::Status Items(grpc::ServerContext *context, const zera_api::ItemRequest *request, zera_api::ItemResponse *response) override;
     grpc::Status Denomination(grpc::ServerContext *context, const zera_api::DenominationRequest *request, zera_api::DenominationResponse *response) override;
     grpc::Status Database(grpc::ServerContext *context, const zera_api::DatabaseRequest *request, zera_api::DatabaseResponse *response) override;
+    grpc::Status Block(grpc::ServerContext *context, const zera_api::BlockRequest *request, zera_api::BlockResponse *response) override;
 
     void StartService(const std::string &port = "50053")
     {
@@ -51,7 +52,7 @@ public:
         config.staticRefillRate = 5.0; // Static refill rate
         config.staticCapacity = 100.0; // Static max tokens
         rate_limiter.configure(config);
-        
+
         for (const auto &ip : whitelist)
         {
             rate_limiter.addToWhitelist(ip);
@@ -68,4 +69,32 @@ private:
     grpc::Status RecieveRequestItems(grpc::ServerContext *context, const zera_api::ItemRequest *request, zera_api::ItemResponse *response);
     grpc::Status RecieveRequestDenomination(grpc::ServerContext *context, const zera_api::DenominationRequest *request, zera_api::DenominationResponse *response);
     grpc::Status RecieveRequestDatabase(grpc::ServerContext *context, const zera_api::DatabaseRequest *request, zera_api::DatabaseResponse *response);
+    grpc::Status RecieveRequestBlock(grpc::ServerContext *context, const zera_api::BlockRequest *request, zera_api::BlockResponse *response);
+
+    static bool check_rate_limit(grpc::ServerContext *context)
+    {
+        // Get the client's IP address
+        std::string peer_info = context->peer();
+        std::string client_ip;
+
+        // Extract the IP address from the peer info
+        size_t pos = peer_info.find(":");
+        if (pos != std::string::npos)
+        {
+            client_ip = peer_info.substr(0, pos); // Extract everything before the first colon
+        }
+        else
+        {
+            client_ip = peer_info; // Fallback if no colon is found
+        }
+
+        if (!rate_limiter.canProceed(client_ip))
+        {
+            return false;
+        }
+
+        rate_limiter.processUpdate(client_ip, false);
+
+        return true;
+    };
 };
