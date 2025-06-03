@@ -221,9 +221,9 @@ namespace
         {
             sender.txn_hashes.push_back(txn.base().hash());
             block_txns.add_coin_txns()->CopyFrom(txn);
-            txn_hash_tracker::add_hash(txn.base().hash());
+            txn_hash_tracker::add_sc_hash(txn.base().hash());
             uint64_t nonce = txn.base().nonce();
-            nonce_tracker::add_used_nonce(sender.smart_contract_wallet, nonce);
+            nonce_tracker::store_sc_nonce(sender.smart_contract_wallet, nonce);
         }
 
         db_smart_contracts::store_single(sender.block_txns_key, block_txns.SerializeAsString());
@@ -254,13 +254,12 @@ namespace
 
         calc_fee(&txn, txn_fee_amount);
 
-
         if (transfer_all_zra)
         {
             amount_int = amount_int - txn_fee_amount;
             amount_int = amount_int - contract_fee_amount;
+            txn.mutable_output_transfers(0)->set_amount(amount_int.str());
         }
-
 
         set_input(txn.add_input_transfers(), amount_int.str());
 

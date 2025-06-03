@@ -493,6 +493,66 @@ void balance_tracker::remove_txn_balance(const std::string &txn_hash)
 {
     std::string balance_key = "ADD_BALANCE_" + txn_hash;
     std::string sub_balance_key = "SUB_BALANCE_" + txn_hash;
+
+    std::string balance_value;
+    std::string sub_balance_value;
+
+    zera_validator::BalanceTracker balance_tracker;
+    zera_validator::BalanceTracker sub_balance_tracker;
+
+    rocksdb::WriteBatch processed_batch;
+
+    std::map<std::string, uint256_t> balance_map;
+
+    if (db_processed_wallets::get_single(balance_key, balance_value))
+    {
+        balance_tracker.ParseFromString(balance_value);
+    }
+    if (db_processed_wallets::get_single(sub_balance_key, sub_balance_value))
+    {
+        sub_balance_tracker.ParseFromString(sub_balance_value);
+    }
+
+    for (auto balance_tracker : balance_tracker.wallet_balances())
+    {
+        std::string wallet_key = balance_tracker.first;
+        uint256_t amount(balance_tracker.second);
+
+        std::string balance_str;
+
+        if (db_processed_wallets::get_single(wallet_key, balance_str))
+        {
+            uint256_t balance(balance_str);
+            balance -= amount;
+            processed_batch.Put(wallet_key, balance.str());
+            balance_map[wallet_key] = balance;
+        }
+    }
+
+    for (auto balance_tracker : sub_balance_tracker.wallet_balances())
+    {
+        std::string wallet_key = balance_tracker.first;
+        uint256_t amount(balance_tracker.second);
+
+        std::string balance_str;
+
+        if (db_processed_wallets::get_single(wallet_key, balance_str))
+        {
+            uint256_t balance(balance_str);
+            if (balance_map.find(wallet_key) != balance_map.end())
+            {
+                uint256_t old_balance(balance_map[wallet_key]);
+                balance = old_balance + amount;
+            }
+            else
+            {
+                balance += amount;
+            }
+            processed_batch.Put(wallet_key, balance.str());
+        }
+    }
+
+    db_processed_wallets::store_batch(processed_batch);
     db_processed_wallets::remove_single(balance_key);
     db_processed_wallets::remove_single(sub_balance_key);
 }

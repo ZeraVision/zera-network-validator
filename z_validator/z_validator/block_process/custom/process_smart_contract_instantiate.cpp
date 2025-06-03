@@ -72,7 +72,7 @@ namespace
 
             if (type == "string")
             {
-                logging::print("string:", value);
+                logging::print("string:", value, true);
                 params_vector.push_back(param.value());
             }
             else if (type == "int")
@@ -128,6 +128,8 @@ namespace
         {
             smart_contract_service::eval(sender_pub_key, sender_wallet_adr, instance_name, db_contract.binary_code(), db_contract.language(), constructor_function_name, params_vector, dependencies, txn->base().hash(), timestamp, block_txns_key, fee_address, smart_contract_wallet, gas_approved, used_gas, txn_hashes);
 
+            nonce_tracker::add_sc_to_used_nonce();
+            txn_hash_tracker::add_sc_to_hash();
             db_sc_temp::remove_all();
             logging::print("[ProcessSmartContractInstantiate] DONE");
         }
@@ -137,7 +139,10 @@ namespace
             uint32_t version = ValidatorConfig::get_required_version();
 
             if (version >= 101001)
-            {
+            {   
+                nonce_tracker::clear_sc_nonce();
+                txn_hash_tracker::clear_sc_txn_hash();
+
                 for (auto hash : txn_hashes)
                 {
                     balance_tracker::remove_txn_balance(hash);
@@ -164,11 +169,12 @@ namespace
                 }
             }
 
+            nonce_tracker::add_sc_to_used_nonce();
+            txn_hash_tracker::add_sc_to_hash();
             db_sc_temp::remove_all();
 
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "Failed to execute txn", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
         }
-
         return ZeraStatus();
     }
 }

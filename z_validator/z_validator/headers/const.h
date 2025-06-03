@@ -1,12 +1,12 @@
 #ifndef _CONST_H_
 #define _CONST_H_
 
-constexpr int VERSION = 101003; //version of the validator
+constexpr int VERSION = 101004; //version of the validator
 //1000000000000000000 1 dollar
 //10000000000000000   1 cent
 //1 000 000 000 000 000 000 1 dollar
 //2000000000000000
-
+/////////
 //MULTIPLIER VALUES
 const long long RESTRICTED_KEY_FEE = 3;                                //3x multiplier on key/hash fees
 

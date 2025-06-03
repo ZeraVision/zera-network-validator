@@ -39,9 +39,6 @@ namespace
                 return true;
             }
         }
-
-        logging::print("validator version is not correct:", std::to_string(validator.version()), true);
-        logging::print("required version:", std::to_string(required_version.version(0)), true);
         
         return false;
     }

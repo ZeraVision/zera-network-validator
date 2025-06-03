@@ -34,4 +34,8 @@ grpc::Status APIImpl::Database(grpc::ServerContext *context, const zera_api::Dat
 {
     return RecieveRequestDatabase(context, request, response);
 }
+grpc::Status APIImpl::Block(grpc::ServerContext *context, const zera_api::BlockRequest *request, zera_api::BlockResponse *response)
+{
+    return RecieveRequestBlock(context, request, response);
+}
 

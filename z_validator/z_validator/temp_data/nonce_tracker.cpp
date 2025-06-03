@@ -5,6 +5,7 @@
 #include "../logging/logging.h"
 
 std::map<std::string, uint64_t> nonce_tracker::used_nonce; // key = wallet_address, value = nonce   (txns in block)
+std::map<std::string, uint64_t> nonce_tracker::sc_nonce; // key = wallet_address, value = nonce   (txns in block)
 std::mutex nonce_tracker::mtx;
 
 
@@ -45,6 +46,23 @@ bool nonce_tracker::remove_pre_nonce(const std::string &wallet_address, uint64_t
     return true;
 }
 
+void nonce_tracker::store_sc_nonce(const std::string &wallet_address, const uint64_t &nonce)
+{
+    std::lock_guard<std::mutex> lock(mtx);
+    if (sc_nonce.count(wallet_address) == 0) {
+        sc_nonce[wallet_address] = nonce;
+    }
+    else{
+
+        uint64_t old_nonce = sc_nonce[wallet_address];
+        
+        if(old_nonce < nonce)
+        {
+            sc_nonce[wallet_address] = nonce;
+        }
+    }
+}
+
 void nonce_tracker::add_used_nonce(const std::string &wallet_address, const uint64_t &nonce)
 {
     std::lock_guard<std::mutex> lock(mtx);
@@ -59,9 +77,22 @@ void nonce_tracker::add_used_nonce(const std::string &wallet_address, const uint
         {
             used_nonce[wallet_address] = nonce;
         }
+    }
+}
 
+void nonce_tracker::add_sc_to_used_nonce()
+{
+    for (auto &nonce : sc_nonce)
+    {
+        add_used_nonce(nonce.first, nonce.second);
     }
 
+    sc_nonce.clear();
+}
+
+void nonce_tracker::clear_sc_nonce()
+{
+    sc_nonce.clear();
 }
 
 void nonce_tracker::store_used_nonce(const std::string& block_height)

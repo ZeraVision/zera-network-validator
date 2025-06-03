@@ -46,7 +46,6 @@ namespace
             }
         }
 
-        //TODO - wtf??
         for (auto version : required_version.version())
         {
             if (validator.version() == version)

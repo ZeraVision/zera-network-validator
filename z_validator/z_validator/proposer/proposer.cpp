@@ -272,6 +272,7 @@ ZeraStatus proposing::make_block(zera_validator::Block *block, const transaction
     db_blocks::store_single(key1, block_write);
     db_headers::store_single(key1, header_write);
     db_hash_index::store_single(block->block_header().hash(), key1);
+    db_hash_index::store_single(std::to_string(block->block_header().block_height()), key1);
     signatures::sign_block_broadcast(block, ValidatorConfig::get_gen_key_pair());
 
     return ZeraStatus(ZeraStatus::OK);

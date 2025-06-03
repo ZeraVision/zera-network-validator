@@ -23,6 +23,7 @@
 #include "utils.h"
 #include "../logging/logging.h"
 #include "../util/stopwatch.h"
+#include "validators.h"
 
 struct WeightedValidator
 {
@@ -75,9 +76,9 @@ struct BlockManager
         txns.timed_values.clear();
         txns.sc_keys.clear();
         txns.sc_values.clear();
-        proposer_index = 0;   
+        proposer_index = 0;
         block_sync_attempts = 0;
-        last_header.Clear(); 
+        last_header.Clear();
         last_key = "";
         proposers.clear();
         has_transactions = false;
@@ -95,10 +96,10 @@ public:
     static ZeraStatus validate_block(zera_validator::Block &block);
     static void set_txn_token_fees(std::string txn_hash, std::string contract_id, std::string address, boost::multiprecision::uint256_t amount);
     static ZeraStatus process_txns(const std::vector<std::string> &values, const std::vector<std::string> &keys, zera_validator::Block *block, bool timed = false, const std::string &fee_address = "");
-    static ZeraStatus make_block(zera_validator::Block *block, const transactions &verify_txns, const Stopwatch& stopwatch);
+    static ZeraStatus make_block(zera_validator::Block *block, const transactions &verify_txns, const Stopwatch &stopwatch);
     static ZeraStatus make_block_sync(zera_validator::Block *block, const transactions &txns, const std::string &fee_address = "");
     static bool add_processed_sync(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block);
-    static bool add_processed(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block, const Stopwatch& stopwatch);
+    static bool add_processed(const std::vector<std::string> &keys, const std::vector<std::string> &values, zera_validator::Block *block, const Stopwatch &stopwatch);
     static void add_temp_wallet_balance(const std::vector<std::string> &txn_hash_vec, const std::string &fee_address);
     static void set_all_token_fees(zera_validator::Block *block, const std::vector<std::string> &txn_hash_vec, const std::string &fee_address);
 
@@ -148,7 +149,7 @@ public:
 
             status = block_process::process_txn(txn, status_fee, txn_type, timed, fee_address, sc_txn);
             status.set_status(status_fee.status());
-            
+
             if (status.ok())
             {
                 if (status_fee.status() != zera_txn::TXN_STATUS::OK)
@@ -162,10 +163,28 @@ public:
 
                 if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE)
                 {
-                    std::string value;
-                    db_smart_contracts::get_single(execute_key, value);
-                    block_txns->Clear();
-                    block_txns->ParseFromString(value);
+                    bool add_txns = false;
+
+                    if (ValidatorConfig::get_required_version() >= 101003)
+                    {
+                        if (status_fee.status() == zera_txn::TXN_STATUS::OK)
+                        {
+                            add_txns = true;
+                        }
+                    }
+                    else
+                    {
+
+                        add_txns = true;
+                    }
+
+                    if (add_txns)
+                    {
+                        std::string value;
+                        db_smart_contracts::get_single(execute_key, value);
+                        block_txns->Clear();
+                        block_txns->ParseFromString(value);
+                    }
                 }
 
                 status_fee.set_txn_hash(txn->base().hash());
@@ -290,7 +309,7 @@ private:
     }
     static ZeraStatus processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *block_txns, bool timed, const std::string &fee_address);
     static void add_transaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *block_txns);
-    static void add_used_new_coin_nonce(const zera_txn::CoinTXN &txn, const zera_txn::TXNStatusFees& status_fees, bool timed = false);
+    static void add_used_new_coin_nonce(const zera_txn::CoinTXN &txn, const zera_txn::TXNStatusFees &status_fees, bool timed = false);
     static void set_token_fees(std::string contract_id, std::string address, boost::multiprecision::uint256_t amount, std::map<std::string, std::map<std::string, boost::multiprecision::uint256_t>> &token_fees);
     static std::mutex mtx;
     static std::map<std::string, std::map<std::string, std::map<std::string, boost::multiprecision::uint256_t>>> txn_token_fees;
