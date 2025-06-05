@@ -1291,12 +1291,67 @@ WasmEdge_ModuleInstanceContext *CreateExternModule()
                      ReturnList_ExpenseRatio, sizeof(ReturnList_ExpenseRatio) / sizeof(ReturnList_ExpenseRatio[0]),
                      ExpenseRatio, "expense_ratio");
 
-  // enum WasmEdge_ValType ParamList_ContractWallets[3] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
-  // enum WasmEdge_ValType ReturnList_ContractWallets[1] = {WasmEdge_ValType_I32};
-  // CreateHostFunction(HostModCxt,
-  //                    ParamList_ContractWallets, sizeof(ParamList_ContractWallets) / sizeof(ParamList_ContractWallets[0]),
-  //                    ReturnList_ContractWallets, sizeof(ReturnList_ContractWallets) / sizeof(ReturnList_ContractWallets[0]),
-  //                    ContractWallets, "contract_wallets");
+  // ALLOWANCE
+  enum WasmEdge_ValType ParamList_Allowance[17] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                   WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                   WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                   WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                   WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                   WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                   WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                   WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_Allowance[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_Allowance, sizeof(ParamList_Allowance) / sizeof(ParamList_Allowance[0]),
+                     ReturnList_Allowance, sizeof(ReturnList_Allowance) / sizeof(ReturnList_Allowance[0]),
+                     Allowance, "allowance");
+
+  // ALLOWANCE SENDER
+  enum WasmEdge_ValType ParamList_AllowanceSender[17] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                         WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                         WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                         WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                         WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                         WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                         WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                         WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_AllowanceSender[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_AllowanceSender, sizeof(ParamList_AllowanceSender) / sizeof(ParamList_AllowanceSender[0]),
+                     ReturnList_AllowanceSender, sizeof(ReturnList_AllowanceSender) / sizeof(ReturnList_AllowanceSender[0]),
+                     AllowanceSender, "allowance_sender");
+
+  // ALLOWANCE CURRENT
+  enum WasmEdge_ValType ParamList_AllowanceCurrent[17] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                          WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                          WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                          WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                          WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                          WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                          WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                          WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_AllowanceCurrent[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_AllowanceCurrent, sizeof(ParamList_AllowanceCurrent) / sizeof(ParamList_AllowanceCurrent[0]),
+                     ReturnList_AllowanceCurrent, sizeof(ReturnList_AllowanceCurrent) / sizeof(ReturnList_AllowanceCurrent[0]),
+                     AllowanceCurrent, "allowance_current");
+
+  // ALLOWANCE DELEGATE
+  enum WasmEdge_ValType ParamList_AllowanceDelegate[19] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_AllowanceDelegate[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_AllowanceDelegate, sizeof(ParamList_AllowanceDelegate) / sizeof(ParamList_AllowanceDelegate[0]),
+                     ReturnList_AllowanceDelegate, sizeof(ReturnList_AllowanceDelegate) / sizeof(ReturnList_AllowanceDelegate[0]),
+                     AllowanceDelegate, "allowance_delegate");
+
 
   return HostModCxt;
 }

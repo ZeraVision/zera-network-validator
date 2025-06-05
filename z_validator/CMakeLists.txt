@@ -25,6 +25,16 @@ set(SOURCES
     #main
     ${ZERA_DIR}/zera-validator.cpp
 
+    #batch_txns
+    ${ZERA_DIR}/txn_batch/batch_misc.cpp
+    ${ZERA_DIR}/txn_batch/batch_gov.cpp
+    ${ZERA_DIR}/txn_batch/batch_validator.cpp
+    ${ZERA_DIR}/txn_batch/batch_proposals.cpp
+    ${ZERA_DIR}/txn_batch/batch_contract.cpp
+    ${ZERA_DIR}/txn_batch/batch_item.cpp
+    ${ZERA_DIR}/txn_batch/batch_smart_contract.cpp
+    
+
      #grpc
      ${ZERA_DIR}/grpc/api/block.cpp
      ${ZERA_DIR}/grpc/api/database.cpp
@@ -55,6 +65,7 @@ set(SOURCES
          ${ZERA_DIR}/grpc/p2p/server/gossip_service.cpp
 
      #smart contracts
+     ${ZERA_DIR}/smart_contract/native_functions/native_function_allowance.cpp
      ${ZERA_DIR}/smart_contract/native_functions/native_function_vote.cpp
      ${ZERA_DIR}/smart_contract/native_functions/native_function_expense_ratio.cpp
      ${ZERA_DIR}/smart_contract/smart_contract_service.cpp
@@ -144,15 +155,6 @@ set(SOURCES
     #restricted
     ${ZERA_DIR}/restricted/restricted_keys.cpp
 
-    #batch_txns
-    ${ZERA_DIR}/txn_batch/batch_gov.cpp
-    ${ZERA_DIR}/txn_batch/batch_validator.cpp
-    ${ZERA_DIR}/txn_batch/batch_proposals.cpp
-    ${ZERA_DIR}/txn_batch/batch_misc.cpp
-    ${ZERA_DIR}/txn_batch/batch_contract.cpp
-    ${ZERA_DIR}/txn_batch/batch_item.cpp
-    ${ZERA_DIR}/txn_batch/batch_smart_contract.cpp
-    
     #txn
     ${ZERA_DIR}/vp/verify_process.cpp
 
@@ -238,6 +240,8 @@ add_compile_options(
     -fno-omit-frame-pointer
     #-std=c11
     -fexceptions
+    -D_TIME_BITS=64
+    -D_FILE_OFFSET_BITS=64 # Add this line
 )
 
 # Create the executable

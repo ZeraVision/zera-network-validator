@@ -74,8 +74,8 @@ namespace
             ts->set_seconds(proposal.start_timestamp().seconds());
         }
 
-        int days = 0;
-        int months = 0;
+        uint32_t days = 0;
+        uint32_t months = 0;
         if (contract.governance().proposal_period() == zera_txn::PROPOSAL_PERIOD::DAYS)
         {
             days = contract.governance().voting_period();

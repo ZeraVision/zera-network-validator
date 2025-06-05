@@ -14,8 +14,8 @@ namespace
     void make_staged_cycle_ledger(const zera_txn::InstrumentContract &contract)
     {
 
-        int days = 0;
-        int months = 0;
+        uint32_t days = 0;
+        uint32_t months = 0;
 
         if (contract.governance().proposal_period() == zera_txn::PROPOSAL_PERIOD::DAYS)
         {
