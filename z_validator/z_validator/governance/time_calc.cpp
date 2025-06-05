@@ -16,7 +16,7 @@ std::tm time_calc::get_start_date(const google::protobuf::Timestamp& timestamp)
     return now;
 }
 
-std::tm time_calc::get_process_date_cycle(const google::protobuf::Timestamp& timestamp, int add_days, int add_months)
+std::tm time_calc::get_process_date_cycle(const google::protobuf::Timestamp& timestamp, uint32_t add_days, uint32_t add_months)
 {
     std::tm original = get_start_date(timestamp);
     std::time_t t = std::time(nullptr);
@@ -34,7 +34,7 @@ std::tm time_calc::get_process_date_cycle(const google::protobuf::Timestamp& tim
     return now;
 }
 
-google::protobuf::Timestamp time_calc::get_end_date_cycle(const google::protobuf::Timestamp& timestamp, int add_days, int add_months)
+google::protobuf::Timestamp time_calc::get_end_date_cycle(const google::protobuf::Timestamp& timestamp, uint32_t add_days, uint32_t add_months)
 {
     std::tm original = get_start_date(timestamp);
 
@@ -51,7 +51,7 @@ google::protobuf::Timestamp time_calc::get_end_date_cycle(const google::protobuf
     return ts;
 }
 
-std::tm time_calc::process_date_staggered(const google::protobuf::Timestamp& timestamp, int add_days, int add_months)
+std::tm time_calc::process_date_staggered(const google::protobuf::Timestamp& timestamp, uint32_t add_days, uint32_t add_months)
 {
     std::time_t t = timestamp.seconds();
     std::tm now;

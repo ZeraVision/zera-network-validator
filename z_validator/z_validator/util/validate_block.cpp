@@ -58,10 +58,6 @@ namespace
                 status.set_txn_hash(hash);
             }
         }
-
-        logging::print("old hash:", base58_encode(*old_hash));
-        logging::print("new hash:", base58_encode(block->transactions().txn_fees_and_status(0).txn_hash()));
-        logging::print("should be hash:", base58_encode(hash));
     }
 
     void print_proposal_result(const zera_txn::ProposalResult &result)

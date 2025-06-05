@@ -9,10 +9,10 @@
 class time_calc
 {
 public:
-    static google::protobuf::Timestamp get_end_date_cycle(const google::protobuf::Timestamp& timestamp, int add_days, int add_months);
+    static google::protobuf::Timestamp get_end_date_cycle(const google::protobuf::Timestamp& timestamp, uint32_t add_days, uint32_t add_months);
     static std::tm get_start_date(const google::protobuf::Timestamp& timestamp);
-    static std::tm get_process_date_cycle(const google::protobuf::Timestamp& timestamp, int add_days, int add_months);
-    static std::tm process_date_staggered(const google::protobuf::Timestamp& timestamp, int add_days, int add_months);
+    static std::tm get_process_date_cycle(const google::protobuf::Timestamp& timestamp, uint32_t add_days, uint32_t add_months);
+    static std::tm process_date_staggered(const google::protobuf::Timestamp& timestamp, uint32_t add_days, uint32_t add_months);
     static std::string convert_to_key_hours(std::tm &date);
     static std::string convert_to_key_hours(const google::protobuf::Timestamp& timestamp);
     static std::string convert_to_key_minutes(std::tm &date);

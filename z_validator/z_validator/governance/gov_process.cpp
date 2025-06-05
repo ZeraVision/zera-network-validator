@@ -140,6 +140,20 @@ namespace
         uint256_t no(no_votes);
 
         uint256_t circ_supply(max_supply.circulation());
+
+        if (ValidatorConfig::get_required_version() >= 101003)
+        {
+            std::string burn_wallet = std::string(BURN_WALLET) + voting_contract.contract_id();
+            std::string burn_data;
+            if (!db_processed_wallets::get_single(burn_wallet, burn_data) && !db_wallets::get_single(burn_wallet, burn_data))
+            {
+                burn_data = "0";
+            }
+            uint256_t burn_amount(burn_data);
+
+            circ_supply -= burn_amount;
+        }
+
         uint256_t denomination(voting_contract.coin_denomination().amount());
         uint256_t cur_equiv;
 
@@ -269,6 +283,16 @@ namespace
         }
 
         uint256_t circ_supply(max_supply.circulation());
+        std::string burn_wallet = std::string(BURN_WALLET) + voting_contract.contract_id();
+        std::string burn_data;
+        if (!db_processed_wallets::get_single(burn_wallet, burn_data) && !db_wallets::get_single(burn_wallet, burn_data))
+        {
+            burn_data = "0";
+        }
+        uint256_t burn_amount(burn_data);
+
+        circ_supply -= burn_amount;
+
         uint256_t denomination(voting_contract.coin_denomination().amount());
         uint256_t cur_equiv;
         block_process::get_cur_equiv(voting_contract.contract_id(), cur_equiv);
@@ -503,7 +527,7 @@ namespace
 
             if (ledger.has_stage_end_date())
             {
-                
+
                 if (block->block_header().timestamp().seconds() >= ledger.stage_end_date().seconds())
                 {
                     if (ledger.proposal_ids_size() > 0)
@@ -665,7 +689,7 @@ namespace
                 }
 
                 uint32_t proposal_amount = 0;
-                if(contract.governance().has_max_approved())
+                if (contract.governance().has_max_approved())
                 {
                     proposal_amount = contract.governance().max_approved();
                 }
@@ -702,8 +726,6 @@ namespace
                     }
                 }
             }
-
-
 
             for (auto result : results)
             {
