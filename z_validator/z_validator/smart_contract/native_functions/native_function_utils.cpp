@@ -382,7 +382,7 @@ WasmEdge_Result CirculatingSupply(void *Data, const WasmEdge_CallingFrameContext
 
   std::string burn_wallet = std::string(BURN_WALLET) + contract_id;
   std::string burn_data;
-  if (!db_processed_wallets::get_single(burn_wallet, supply_data) && !db_wallets::get_single(burn_wallet, supply_data))
+  if (!db_processed_wallets::get_single(burn_wallet, burn_data) && !db_wallets::get_single(burn_wallet, burn_data))
   {
     burn_data = "0";
   }

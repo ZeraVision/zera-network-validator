@@ -88,7 +88,7 @@ ZeraStatus block_process::process_txn<zera_txn::ExpenseRatioTXN>(const zera_txn:
 {
     uint64_t nonce = txn->base().nonce();
 
-    ZeraStatus status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+    ZeraStatus status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
     if (!status.ok())
     {

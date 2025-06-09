@@ -41,8 +41,8 @@ namespace
 
         if (final_stage)
         {
-            int days = 0;
-            int months = 0;
+            uint32_t days = 0;
+            uint32_t months = 0;
             if (contract.governance().proposal_period() == zera_txn::PROPOSAL_PERIOD::DAYS)
             {
                 days = contract.governance().voting_period();
@@ -64,8 +64,8 @@ namespace
             new_proposal_ledger.mutable_pending_proposal_ids()->CopyFrom(old_proposal_ledger.pending_proposal_ids());
         }
 
-        int days = 0;
-        int months = 0;
+        uint32_t days = 0;
+        uint32_t months = 0;
 
         if (contract.governance().stage_length_size() < stage)
         {
@@ -87,8 +87,8 @@ namespace
     }
     void cycle(const zera_txn::InstrumentContract &contract, const zera_validator::ProposalLedger &old_proposal_ledger, zera_validator::ProposalLedger &new_proposal_ledger)
     {
-        int days = 0;
-        int months = 0;
+        uint32_t days = 0;
+        uint32_t months = 0;
         if (contract.governance().proposal_period() == zera_txn::PROPOSAL_PERIOD::DAYS)
         {
             days = contract.governance().voting_period();

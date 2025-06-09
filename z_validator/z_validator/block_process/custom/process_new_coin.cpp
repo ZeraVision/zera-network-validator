@@ -694,7 +694,7 @@ ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN
     bool allowance = false;
     if (txn->base().public_key().has_governance_auth())
     {
-        ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash());
+        ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {

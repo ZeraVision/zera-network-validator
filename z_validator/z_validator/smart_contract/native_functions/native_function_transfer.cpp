@@ -171,7 +171,16 @@ namespace
         nonce_tracker::get_nonce(wallet_address, nonce);
         nonce = nonce + 1;
         auth->add_nonce(nonce);
-        auth->add_public_key()->set_single(sender.pub_key);
+
+        if(smart_contract_service::gov_key(sender.pub_key))
+        {
+            auth->add_public_key()->set_governance_auth(sender.pub_key);
+        }
+        else
+        {
+            auth->add_public_key()->set_single(sender.pub_key);
+        }
+
     }
 
     void set_input(zera_txn::InputTransfers *input, const std::string &amount)

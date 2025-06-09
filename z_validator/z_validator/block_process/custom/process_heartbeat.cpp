@@ -58,7 +58,7 @@ ZeraStatus block_process::process_txn<zera_txn::ValidatorHeartbeat>(const zera_t
     uint64_t nonce = txn->base().nonce();
     ZeraStatus status;
 
-    status = block_process::check_nonce(validator.public_key(), nonce, txn->base().hash());
+    status = block_process::check_nonce(validator.public_key(), nonce, txn->base().hash(), sc_txn);
 
     if (!status.ok())
     {

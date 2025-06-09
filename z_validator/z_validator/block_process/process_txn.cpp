@@ -6,14 +6,14 @@
 #include <thread>
 #include "../logging/logging.h"
 
-ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, const uint64_t &txn_nonce, const std::string& txn_hash)
+ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, const uint64_t &txn_nonce, const std::string& txn_hash, bool sc_txn)
 {
     std::string wallet_adr = wallets::generate_wallet(public_key);
     uint64_t wallet_nonce;
     
     if (public_key.has_governance_auth())
     {
-        if (db_gov_txn::exist(txn_hash))
+        if (db_gov_txn::exist(txn_hash) || sc_txn)
         {
             return ZeraStatus();
         }
@@ -200,7 +200,7 @@ ZeraStatus block_process::process_txn(const TXType *txn, zera_txn::TXNStatusFees
 
     if (!timed)
     {
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
         if (!status.ok())
         {
             return status;

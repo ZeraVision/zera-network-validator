@@ -140,6 +140,20 @@ namespace
         uint256_t no(no_votes);
 
         uint256_t circ_supply(max_supply.circulation());
+
+        if (ValidatorConfig::get_required_version() >= 101003)
+        {
+            std::string burn_wallet = std::string(BURN_WALLET) + voting_contract.contract_id();
+            std::string burn_data;
+            if (!db_processed_wallets::get_single(burn_wallet, burn_data) && !db_wallets::get_single(burn_wallet, burn_data))
+            {
+                burn_data = "0";
+            }
+            uint256_t burn_amount(burn_data);
+
+            circ_supply -= burn_amount;
+        }
+
         uint256_t denomination(voting_contract.coin_denomination().amount());
         uint256_t cur_equiv;
 
@@ -201,8 +215,10 @@ namespace
 
         result->set_support_cur_equiv(boost::lexical_cast<std::string>(yes_amount));
         result->set_against_cur_equiv(boost::lexical_cast<std::string>(no_amount));
-
         result->set_passed(calculate_passed(result->support_cur_equiv(), result->against_cur_equiv(), contract, fast_quorum));
+
+        //TESTING: REMOVE THIS
+        //result->set_passed(true);
     }
 
     bool calculate_passed_options(const zera_txn::ProposalResult *result, const zera_txn::InstrumentContract &contract, bool fast_quorum = false)
@@ -269,6 +285,16 @@ namespace
         }
 
         uint256_t circ_supply(max_supply.circulation());
+        std::string burn_wallet = std::string(BURN_WALLET) + voting_contract.contract_id();
+        std::string burn_data;
+        if (!db_processed_wallets::get_single(burn_wallet, burn_data) && !db_wallets::get_single(burn_wallet, burn_data))
+        {
+            burn_data = "0";
+        }
+        uint256_t burn_amount(burn_data);
+
+        circ_supply -= burn_amount;
+
         uint256_t denomination(voting_contract.coin_denomination().amount());
         uint256_t cur_equiv;
         block_process::get_cur_equiv(voting_contract.contract_id(), cur_equiv);
@@ -476,6 +502,9 @@ namespace
             google::protobuf::Timestamp process_date;
             process_date.ParseFromString(values.at(x));
 
+
+            //TESTING: REMOVE THIS
+            //if (block->block_header().timestamp().seconds() >= (process_date.seconds() - 345600))
             if (block->block_header().timestamp().seconds() >= process_date.seconds())
             {
                 wrapper.add_proposal_ids(keys.at(x));
@@ -503,7 +532,7 @@ namespace
 
             if (ledger.has_stage_end_date())
             {
-                
+
                 if (block->block_header().timestamp().seconds() >= ledger.stage_end_date().seconds())
                 {
                     if (ledger.proposal_ids_size() > 0)
@@ -665,7 +694,7 @@ namespace
                 }
 
                 uint32_t proposal_amount = 0;
-                if(contract.governance().has_max_approved())
+                if (contract.governance().has_max_approved())
                 {
                     proposal_amount = contract.governance().max_approved();
                 }
@@ -702,8 +731,6 @@ namespace
                     }
                 }
             }
-
-
 
             for (auto result : results)
             {

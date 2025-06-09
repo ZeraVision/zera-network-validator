@@ -94,7 +94,7 @@ ZeraStatus block_process::process_txn<zera_txn::SmartContractTXN>(const zera_txn
     if (!timed)
     {
         // check nonce, if its bad return failed txn
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {

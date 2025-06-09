@@ -29,7 +29,7 @@ public:
         ALLOWED = 2,
         NOT_ALLOWED = 3
     };
-    static ZeraStatus check_nonce(const zera_txn::PublicKey &public_key, const uint64_t& txn_nonce, const std::string &txn_hash = "");
+    static ZeraStatus check_nonce(const zera_txn::PublicKey &public_key, const uint64_t& txn_nonce, const std::string &txn_hash = "", bool sc_txn = false);
     static ZeraStatus check_nonce_adr(const std::string& wallet_adr , const uint64_t &txn_nonce, const std::string& txn_hash = "");
     static ZeraStatus process_fees(const zera_txn::InstrumentContract &contract, uint256_t fee_amount,
                                    const std::string &wallet_adr, const std::string &fee_symbol,

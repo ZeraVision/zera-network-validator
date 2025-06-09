@@ -203,7 +203,7 @@ ZeraStatus block_process::process_txn<zera_txn::ValidatorRegistration>(const zer
         return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, "process_registration.cpp: process_txn: Generated public key is not accepted.", zera_txn::TXN_STATUS::VALIDATOR_ADDRESS);
     }
 
-    status = block_process::check_nonce(txn->validator().public_key(), nonce, txn->base().hash());
+    status = block_process::check_nonce(txn->validator().public_key(), nonce, txn->base().hash(), sc_txn);
 
     if (!status.ok())
     {

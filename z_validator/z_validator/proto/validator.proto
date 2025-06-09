@@ -64,6 +64,7 @@ message StakeMultipliers
     map<string, string> contract_multipliers = 1; //key = contract_id, value = multiplier (multiplier 100 000 = 100%)
     string default_multiplier = 2;                //default multiplier for all contracts based off of % of zera staked
 }
+
 //Key = Block Height
 message ValidatorArchive
 {
