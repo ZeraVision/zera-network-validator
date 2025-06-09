@@ -522,7 +522,7 @@ ZeraStatus block_process::process_txn<zera_txn::GovernanceProposal>(const zera_t
     ZeraStatus status;
     if (!timed)
     {
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {
