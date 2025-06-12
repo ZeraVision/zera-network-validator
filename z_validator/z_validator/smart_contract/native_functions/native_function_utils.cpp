@@ -487,6 +487,33 @@ WasmEdge_Result CurrentSmartContractWallet(void *Data, const WasmEdge_CallingFra
 
   return WasmEdge_Result_Success;
 }
+WasmEdge_Result CalledSmartContractWallet(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
+                                          const WasmEdge_Value *In, WasmEdge_Value *Out)
+{
+  uint32_t TargetPointer = WasmEdge_ValueGetI32(In[0]);
+
+  WasmEdge_MemoryInstanceContext *MemCxt = WasmEdge_CallingFrameGetMemoryInstance(CallFrameCxt, 0);
+
+  SenderDataType sender = *(SenderDataType *)Data;
+
+  size_t call_size = sender.wallet_chain.size();
+  int call_index = call_size - 1;
+
+  if(sender.wallet_chain.size() > 1)
+  {
+    // If the call chain is longer than 1, we return the wallet of the last call
+    call_index = call_size - 2;
+  }
+
+  std::string wallet = base58_encode(sender.wallet_chain[call_index]);
+
+  const char *val = wallet.c_str();
+  const size_t len = wallet.length();
+  WasmEdge_MemoryInstanceSetData(MemCxt, (unsigned char *)val, TargetPointer, len);
+  Out[0] = WasmEdge_ValueGenI32(len);
+
+  return WasmEdge_Result_Success;
+}
 
 WasmEdge_Result Compliance(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
                            const WasmEdge_Value *In, WasmEdge_Value *Out)
@@ -620,7 +647,7 @@ WasmEdge_Result ComplianceLevels(void *Data, const WasmEdge_CallingFrameContext 
   }
 
   logging::print("Compliance levels", return_string, true);
-  
+
   const char *val = return_string.c_str();
   const size_t len = return_string.length();
   WasmEdge_MemoryInstanceSetData(MemCxt, (unsigned char *)val, TargetPointer, len);

@@ -152,8 +152,10 @@ namespace
             db_sc_temp::remove_all();
             return ZeraStatus();
         }
-        catch (...)
+        catch (const std::exception &e)
         {
+            logging::print("[ProcessSmartContractExecute] Exception caught:", e.what(), true);
+
             uint32_t version = ValidatorConfig::get_required_version(); 
 
             if (version >= 101001)
