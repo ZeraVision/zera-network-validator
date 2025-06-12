@@ -77,10 +77,16 @@ void txn_batch::batch_allowance_txns(const zera_txn::TXNS &txns, const std::map<
                 std::tm period_end_tm = *std::gmtime(&period_end_time_t);
 
                 // Calculate the number of months to add
-                int months_to_add = state.period_months();
+                uint32_t months_to_add = state.period_months();
+
+                // Break months_to_add into years and remaining months
+                uint32_t years_to_add = months_to_add / 12; // Calculate full years
+                uint32_t remaining_months_to_add = months_to_add % 12;
+
                 while (std::mktime(&period_end_tm) < static_cast<std::time_t>(block_time))
                 {
-                    period_end_tm.tm_mon += months_to_add;
+                    period_end_tm.tm_year += years_to_add; // Add full years
+                    period_end_tm.tm_mon += remaining_months_to_add;
 
                     // Normalize the time structure
                     period_end = static_cast<uint64_t>(std::mktime(&period_end_tm));

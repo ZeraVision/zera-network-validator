@@ -147,8 +147,7 @@ namespace
         }
         catch (...)
         {
-            uint32_t version = ValidatorConfig::get_required_version();
-            logging::print("FAILED EXECUTEversion:", std::to_string(version));    
+            uint32_t version = ValidatorConfig::get_required_version(); 
 
             if (version >= 101001)
             {

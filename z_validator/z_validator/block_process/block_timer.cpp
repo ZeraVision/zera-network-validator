@@ -168,9 +168,58 @@ namespace
                                          { 
                     AttestationProcess::CreateAttestation(block_copy);
                     delete block_copy; });
-
     }
 
+    void check_proposer(BlockManager &block_manager)
+    {
+        std::string prefix = "alive_";
+        std::string validator_data;
+        std::string gen_key = wallets::get_public_key_string(block_manager.new_header.public_key());
+
+        if (!db_validators::get_single(gen_key, validator_data))
+        {
+            if (block_manager.proposer_index == 0)
+            {
+                std::string pub = wallets::get_public_key_string(block_manager.proposers.at(0).public_key());
+                db_validator_lookup::remove_single(prefix + pub);
+                return;
+            }
+            else
+            {
+                gen_key == ValidatorConfig::get_gen_public_key();
+                db_validators::get_single(gen_key, validator_data);
+            }
+        }
+
+        zera_txn::Validator proposer;
+        proposer.ParseFromString(validator_data);
+        std::string new_pub = wallets::get_public_key_string(proposer.public_key());
+
+        for (int x = 0; x < block_manager.proposers.size(); x++)
+        {
+            std::string pub = wallets::get_public_key_string(block_manager.proposers.at(x).public_key());
+
+            if (new_pub == pub)
+            {
+                db_validator_lookup::remove_single(prefix + pub);
+                return;
+            }
+
+            std::string value;
+            if (!db_validator_lookup::get_single(prefix + pub, value))
+            {
+                value = "0";
+            }
+
+            uint64_t val = std::stoull(value) + 1;
+            db_validator_lookup::store_single(prefix + pub, std::to_string(val));
+            if (val >= 2)
+            {
+                proposer.set_online(false);
+                db_validators::store_single(gen_key, proposer.SerializeAsString());
+            }
+        }
+    }
 }
 
 void block_process::start_block_process()
@@ -197,7 +246,7 @@ void block_process::start_block_process()
         logging::print("by wieght proposers size:", std::to_string(block_manager.proposers.size()));
         proposer_tracker::clear_proposers();
 
-        if(block_manager.proposers.size() > 0)
+        if (block_manager.proposers.size() > 0)
         {
             proposer_tracker::add_proposer(block_manager.proposers.at(0));
         }
@@ -218,6 +267,8 @@ void block_process::start_block_process()
             {
                 get_proposer_or_new_block(block_manager);
 
+                check_proposer(block_manager);
+
                 if (block_manager.my_block)
                 {
                     process_block(block_manager);
@@ -228,6 +279,7 @@ void block_process::start_block_process()
                 block_manager.last_header.CopyFrom(block_manager.new_header);
                 block_manager.last_key = block_manager.new_key;
                 block_manager.same_block = false;
+                check_proposer(block_manager);
                 break;
             }
             else
