@@ -6,6 +6,7 @@
 #include "../../temp_data/temp_data.h"
 #include "wallets.h"
 #include "../../logging/logging.h"
+#include "fees.h"
 
 namespace
 {
@@ -37,8 +38,15 @@ namespace
         return ZeraStatus();
     }
 
-    ZeraStatus check_parameters_expense(const zera_txn::ExpenseRatioTXN *txn, zera_txn::ExpenseRatio &today_expense_ratio)
+    ZeraStatus check_parameters_expense(const zera_txn::ExpenseRatioTXN *txn, zera_txn::ExpenseRatio &today_expense_ratio, zera_txn::TXNStatusFees &status_fees)
     {
+        ZeraStatus status = zera_fees::process_interface_fees(txn->base(), status_fees);
+
+        if (!status.ok())
+        {
+            return status;
+        }
+
         zera_validator::BlockHeader new_header;
         std::string new_key;
         db_headers_tag::get_last_data(new_header, new_key);
@@ -56,7 +64,7 @@ namespace
         }
 
         zera_txn::InstrumentContract contract;
-        ZeraStatus status = block_process::get_contract(txn->contract_id(), contract);
+        status = block_process::get_contract(txn->contract_id(), contract);
         if (!status.ok())
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_expense.cpp: check_parameters_expense: Contract does not exist.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
@@ -72,7 +80,6 @@ namespace
 
         for (auto expense_ratio : contract.expense_ratio())
         {
-
             if (expense_ratio.day() == now.tm_mday && expense_ratio.month() == month)
             {
                 today_expense_ratio.CopyFrom(expense_ratio);
@@ -88,7 +95,7 @@ ZeraStatus block_process::process_txn<zera_txn::ExpenseRatioTXN>(const zera_txn:
 {
     uint64_t nonce = txn->base().nonce();
 
-    ZeraStatus status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+    ZeraStatus status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
     if (!status.ok())
     {
@@ -101,7 +108,7 @@ ZeraStatus block_process::process_txn<zera_txn::ExpenseRatioTXN>(const zera_txn:
         return status;
     }
 
-    status = block_process::process_simple_fees(txn, status_fees, zera_txn::TRANSACTION_TYPE::EXPENSE_RATIO_TYPE, fee_address);
+    status = zera_fees::process_simple_fees(txn, status_fees, zera_txn::TRANSACTION_TYPE::EXPENSE_RATIO_TYPE, fee_address);
     
     if (!status.ok())
     {
@@ -109,7 +116,7 @@ ZeraStatus block_process::process_txn<zera_txn::ExpenseRatioTXN>(const zera_txn:
     }
 
     zera_txn::ExpenseRatio expense_ratio;
-    status = check_parameters_expense(txn, expense_ratio);
+    status = check_parameters_expense(txn, expense_ratio, status_fees);
 
     if (status.ok())
     {

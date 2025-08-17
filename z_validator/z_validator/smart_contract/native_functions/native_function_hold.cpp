@@ -9,6 +9,7 @@
 #include "../../block_process/block_process.h"
 #include "utils.h"
 #include "smart_contract_sender_data.h"
+#include "fees.h"
 
 //*************************************************************
 //                          Holdtxn
@@ -25,9 +26,9 @@ namespace
     {
 
         uint256_t fee_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
         uint256_t priority_equiv;
-        block_process::get_cur_equiv(contract.contract_id(), priority_equiv);
+        zera_fees::get_cur_equiv(contract.contract_id(), priority_equiv);
 
         fixed_fee_amount = (fixed_fee_amount * priority_equiv) / fee_equiv;
     }
@@ -38,9 +39,9 @@ namespace
         perc_fee_amount = amount * contract_fee / quintillion;
 
         uint256_t fee_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
         uint256_t txn_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
 
         perc_fee_amount = (perc_fee_amount * txn_equiv) / fee_equiv;
     }
@@ -71,7 +72,7 @@ namespace
         uint256_t contract_fee(contract.contract_fees().fee());
         uint256_t denomination(contract.coin_denomination().amount());
         uint256_t contract_equiv;
-        block_process::get_cur_equiv(contract.contract_id(), contract_equiv);
+        zera_fees::get_cur_equiv(contract.contract_id(), contract_equiv);
         uint256_t contract_fee_amount;
         switch (contract.contract_fees().contract_fee_type())
         {
@@ -80,7 +81,7 @@ namespace
             // contract fee has quintillion multiplier
             // fee_equiv has 1 quintillion multiplier
             uint256_t fee_equiv;
-            block_process::get_cur_equiv(txn->contract_fee_id(), fee_equiv);
+            zera_fees::get_cur_equiv(txn->contract_fee_id(), fee_equiv);
             contract_fee_amount = (contract_fee * denomination) / fee_equiv;
             break;
         }
@@ -115,7 +116,7 @@ namespace
     void calc_fee(zera_txn::CoinTXN *txn)
     {
         uint256_t equiv;
-        block_process::get_cur_equiv("$ZRA+0000", equiv);
+        zera_fees::get_cur_equiv("$ZRA+0000", equiv);
         zera_txn::InstrumentContract fee_contract;
         block_process::get_contract("$ZRA+0000", fee_contract);
 
@@ -155,6 +156,7 @@ namespace
         base->set_safe_send(false);
     }
 
+
     void set_auth(zera_txn::TransferAuthentication *auth, SenderDataType &sender)
     {
         std::string wallet_address = sender.wallet_address;
@@ -163,7 +165,16 @@ namespace
         nonce = nonce + 1;
 
         auth->add_nonce(nonce);
-        auth->add_public_key()->set_single(sender.pub_key);
+
+        if(smart_contract_service::gov_key(sender.pub_key))
+        {
+            auth->add_public_key()->set_governance_auth(sender.pub_key);
+        }
+        else
+        {
+            auth->add_public_key()->set_single(sender.pub_key);
+        }
+
     }
 
     void set_input(zera_txn::InputTransfers *input, const std::string &amount)
@@ -180,6 +191,13 @@ namespace
         output->set_wallet_address(sender.smart_contract_wallet);
     }
 
+    void current_set_output(zera_txn::OutputTransfers *output, const std::string &amount, SenderDataType &sender)
+    {
+        auto index = sender.wallet_chain.size() - 1;
+        output->set_amount(amount);
+        output->set_wallet_address(sender.wallet_chain[index]);
+    }
+
     std::string process_txn(SenderDataType &sender, const zera_txn::CoinTXN &txn)
     {
         std::string value;
@@ -187,7 +205,7 @@ namespace
         zera_txn::TXNS block_txns;
         block_txns.ParseFromString(value);
         std::string fee_address = sender.fee_address;
-        // ZeraStatus unpack_process_wrapper(TXType *txn, zera_txn::TXNS *block_txns, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed = false, const std::string &fee_address = "", bool sc_txn = false)
+        
         ZeraStatus status = proposing::unpack_process_wrapper(&txn, &block_txns, zera_txn::TRANSACTION_TYPE::COIN_TYPE, false, fee_address, true);
 
         if (status.ok())
@@ -238,7 +256,7 @@ namespace
         current_set_base(base, sender);
         set_auth(txn.mutable_auth(), sender);
         set_input(input, amount);
-        set_output(txn.add_output_transfers(), amount, sender);
+        current_set_output(txn.add_output_transfers(), amount, sender);
         txn.set_contract_id(contract_id);
 
         if (!calc_contract_fee(amount, &txn))
@@ -254,6 +272,8 @@ namespace
         return process_txn(sender, txn);
     }
 }
+
+
 // need to send if sc or sender sending txn, contract_id and amount
 WasmEdge_Result Hold(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt, const WasmEdge_Value *In, WasmEdge_Value *Out)
 {
@@ -379,7 +399,6 @@ WasmEdge_Result CurrentHold(void *Data, const WasmEdge_CallingFrameContext *Call
     }
 
     std::string status = current_create_transfer(sender, contract_id, amount);
-    std::string fee_address = sender.fee_address;
     std::string result = status;
     const char *val = result.c_str();
     const size_t len = result.length();

@@ -5,6 +5,7 @@
 #include "../../temp_data/temp_data.h"
 #include "const.h"
 #include "../logging/logging.h"
+#include "fees.h"
 
 const std::string WASM2WAT_LOCATION = "Downloads/wabt/build/wasm2wat";
 
@@ -94,7 +95,7 @@ ZeraStatus block_process::process_txn<zera_txn::SmartContractTXN>(const zera_txn
     if (!timed)
     {
         // check nonce, if its bad return failed txn
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {
@@ -113,16 +114,22 @@ ZeraStatus block_process::process_txn<zera_txn::SmartContractTXN>(const zera_txn
 
 
     // process base fees. If wallet cannot pay fees or anything else is wrong with the fees return failed txn
-    status = block_process::process_simple_fees(txn, status_fees, zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_TYPE, fee_address);
+    status = zera_fees::process_simple_fees(txn, status_fees, zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_TYPE, fee_address);
 
     if (!status.ok())
     {
         return status;
     }
-    // Igors code, see if the contract has valid instructions, if this fails the txn will still go through but be failed, and fees will be taken
-    if (!smart_contract_valid(txn))
+
+
+    status = zera_fees::process_interface_fees(txn->base(), status_fees);
+
+    if (status.ok())
     {
-        status = ZeraStatus(ZeraStatus::Code::TXN_FAILED, "Forbidden smart contract instructions", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
+        if (!smart_contract_valid(txn))
+        {
+            status = ZeraStatus(ZeraStatus::Code::TXN_FAILED, "Forbidden smart contract instructions", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
+        }
     }
 
     //*****************************************************

@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "../restricted/restricted_keys.h"
 #include "../logging/logging.h"
+#include "fees.h"
 
 namespace
 {
@@ -129,7 +130,7 @@ ZeraStatus block_process::process_txn<zera_txn::AuthorizedCurrencyEquiv>(const z
 
     if (!timed)
     {
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {
@@ -144,7 +145,7 @@ ZeraStatus block_process::process_txn<zera_txn::AuthorizedCurrencyEquiv>(const z
         return status;
     }
 
-    status = block_process::process_simple_fees(txn, status_fees, txn_type, fee_address);
+    status = zera_fees::process_simple_fees(txn, status_fees, txn_type, fee_address);
 
     if (!status.ok())
     {

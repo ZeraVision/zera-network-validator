@@ -18,6 +18,7 @@ service APIService{
     rpc Denomination(DenominationRequest) returns (DenominationResponse);
     rpc Database(DatabaseRequest) returns (DatabaseResponse);
     rpc Block(BlockRequest) returns (BlockResponse);
+    rpc ProposalLedger(ProposalLedgerRequest) returns (ProposalLedgerResponse);
 }
 
 
@@ -41,6 +42,30 @@ enum DATABASE_TYPE{
     CONFIRMED_BLOCKS = 16;
 }
 
+enum PROPOSAL_TYPE{
+    ALL_PROPOSALS = 0;
+    ALL_LEDGERS = 1;
+    PROPOSAL_BY_ID = 2;
+    LEDGER_BY_ID = 3;
+}
+
+//PROPOSAL LEDGER
+message ProposalLedgerRequest{
+    DATABASE_TYPE type = 1;
+    string key = 2; //proposal_id or ledger_id
+}
+message ProposalLedgerResponse{
+    repeated string ledger_keys = 1; //proposal_id or ledger_id
+    repeated string ledger_values = 2; //string of proposal ledger
+    repeated string proposal_keys = 3; //proposal_id or ledger_id
+    repeated string proposal_values = 4; //string of proposal ledger
+    repeated string wallets_keys = 5; //proposal_id or ledger_id
+    repeated string wallets_values = 6;
+    repeated string temp_keys = 7; 
+    repeated string temp_values = 8; 
+    repeated string voted_keys = 9; 
+    repeated string voted_values = 10; 
+}
 //Block
 message BlockRequest{
     oneof payload{

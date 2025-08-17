@@ -1,7 +1,7 @@
 #ifndef _CONST_H_
 #define _CONST_H_
 
-constexpr int VERSION = 101005; //version of the validator
+constexpr int VERSION = 101008; //version of the validator
 //1000000000000000000 1 dollar
 //10000000000000000   1 cent
 //1 000 000 000 000 000 000 1 dollar
@@ -76,6 +76,7 @@ constexpr int BURN_FEE_PERCENTAGE = 25; //the percentage of the fees that the bu
 constexpr int FOUNDATION_FEE_PERCENTAGE = 25;
 
 //STRINGS
+constexpr auto NETWORK_FEE_PROXY = "network_fee_proxy_1_NETWORK_SC";
 constexpr auto STAKE_MULTIPLIER = "stake_multiplier";
 constexpr auto REQUIRED_VERSION = "REQUIRED_VERSION";
 constexpr auto CONFIRMED_BLOCK_LATEST = "confirmed_block_latest";

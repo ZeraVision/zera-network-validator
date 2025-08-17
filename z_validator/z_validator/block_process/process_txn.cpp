@@ -5,15 +5,16 @@
 #include "wallets.h"
 #include <thread>
 #include "../logging/logging.h"
+#include "fees.h"
 
-ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, const uint64_t &txn_nonce, const std::string& txn_hash)
+ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, const uint64_t &txn_nonce, const std::string &txn_hash, bool sc_txn)
 {
     std::string wallet_adr = wallets::generate_wallet(public_key);
     uint64_t wallet_nonce;
-    
+
     if (public_key.has_governance_auth())
     {
-        if (db_gov_txn::exist(txn_hash))
+        if (db_gov_txn::exist(txn_hash) || sc_txn)
         {
             return ZeraStatus();
         }
@@ -52,7 +53,7 @@ ZeraStatus block_process::check_nonce(const zera_txn::PublicKey &public_key, con
     return ZeraStatus();
 }
 
-ZeraStatus block_process::check_nonce_adr(const std::string& wallet_adr , const uint64_t &txn_nonce, const std::string& txn_hash)
+ZeraStatus block_process::check_nonce_adr(const std::string &wallet_adr, const uint64_t &txn_nonce, const std::string &txn_hash)
 {
     uint64_t wallet_nonce;
 
@@ -200,23 +201,28 @@ ZeraStatus block_process::process_txn(const TXType *txn, zera_txn::TXNStatusFees
 
     if (!timed)
     {
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
         if (!status.ok())
         {
             return status;
         }
     }
     uint256_t fee_amount;
-    status = block_process::process_simple_fees(txn, status_fees, txn_type, fee_address);
+    status = zera_fees::process_simple_fees(txn, status_fees, txn_type, fee_address);
 
     if (!status.ok())
     {
         return status;
     }
 
-    if (!timed)
+    status = zera_fees::process_interface_fees(txn->base(), status_fees);
+    
+    if (status.ok())
     {
-        status = restricted_check(txn, txn_type);
+        if (!timed)
+        {
+            status = restricted_check(txn, txn_type);
+        }
     }
 
     if (status.ok())
@@ -232,19 +238,19 @@ ZeraStatus block_process::process_txn(const TXType *txn, zera_txn::TXNStatusFees
     {
         logging::print(status.read_status());
     }
-    
+
     return ZeraStatus();
 }
-template ZeraStatus block_process::process_txn<zera_txn::ComplianceTXN>(const zera_txn::ComplianceTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::SelfCurrencyEquiv>(const zera_txn::SelfCurrencyEquiv *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::InstrumentContract>(const zera_txn::InstrumentContract *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::DelegatedTXN>(const zera_txn::DelegatedTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::FastQuorumTXN>(const zera_txn::FastQuorumTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::FoundationTXN>(const zera_txn::FoundationTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::GovernanceVote>(const zera_txn::GovernanceVote *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::NFTTXN>(const zera_txn::NFTTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::QuashTXN>(const zera_txn::QuashTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::RevokeTXN>(const zera_txn::RevokeTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::ContractUpdateTXN>(const zera_txn::ContractUpdateTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::BurnSBTTXN>(const zera_txn::BurnSBTTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
-template ZeraStatus block_process::process_txn<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed,  const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::ComplianceTXN>(const zera_txn::ComplianceTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::SelfCurrencyEquiv>(const zera_txn::SelfCurrencyEquiv *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::InstrumentContract>(const zera_txn::InstrumentContract *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::DelegatedTXN>(const zera_txn::DelegatedTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::FastQuorumTXN>(const zera_txn::FastQuorumTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::FoundationTXN>(const zera_txn::FoundationTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::GovernanceVote>(const zera_txn::GovernanceVote *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::NFTTXN>(const zera_txn::NFTTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::QuashTXN>(const zera_txn::QuashTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::RevokeTXN>(const zera_txn::RevokeTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::ContractUpdateTXN>(const zera_txn::ContractUpdateTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::BurnSBTTXN>(const zera_txn::BurnSBTTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);
+template ZeraStatus block_process::process_txn<zera_txn::AllowanceTXN>(const zera_txn::AllowanceTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn);

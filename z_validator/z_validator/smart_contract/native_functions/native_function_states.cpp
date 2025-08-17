@@ -6,14 +6,17 @@
 #include "const.h"
 #include "../../block_process/block_process.h"
 #include "smart_contract_sender_data.h"
+#include "fees.h"
+#include "validators.h"
 
 namespace
 {
   bool storage_fees(const SenderDataType &sender, const uint64_t &storage_size)
   {
-    uint256_t storage_fee = STORAGE_FEE * storage_size;
+    uint256_t storage_fee = get_fee("STORAGE_FEE") * storage_size;
+
     uint256_t usd_equiv;
-    block_process::get_cur_equiv("$ZRA+0000", usd_equiv);
+    zera_fees::get_cur_equiv("$ZRA+0000", usd_equiv);
     storage_fee = (storage_fee * 1000000000) / usd_equiv;
 
     ZeraStatus status = balance_tracker::subtract_txn_balance(sender.fee_smart_contract_wallet, "$ZRA+0000", storage_fee, sender.txn_hash);
@@ -71,9 +74,18 @@ WasmEdge_Result StoreState(void *Data, const WasmEdge_CallingFrameContext *CallF
       std::string storage_data;
       db_smart_contracts::get_single(storeKey, storage_data);
 
-      uint64_t storage_fee = KeySize + ValueSize - storage_data.length();
+      uint64_t size = KeySize + ValueSize;
+      uint64_t storage_fee ;
 
-      if (!storage_fees(sender, storage_fee))
+      if(size > storage_data.length() || ValidatorConfig::get_required_version() < 101008)
+      {
+        storage_fee = size - storage_data.length();
+      }
+      else {
+        storage_fee = 0;
+      }
+
+      if (storage_fee > 0 && !storage_fees(sender, storage_fee))
       {
         logging::print("Storage fees check failed for sender: " + storeKey, true);
         return WasmEdge_Result_Terminate;

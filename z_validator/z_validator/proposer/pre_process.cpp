@@ -141,6 +141,7 @@ void proposing::add_transaction(zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *b
     }
     else if (wrapper.proposal_result_txn())
     {
+        logging::print("Adding proposal result txn to block");
         gov_process::process_ledgers(block_txns, wrapper);
     }
     else if (wrapper.has_burn_sbt_txn())

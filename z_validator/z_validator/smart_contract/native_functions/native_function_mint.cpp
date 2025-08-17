@@ -9,6 +9,7 @@
 #include "../../block_process/block_process.h"
 #include "utils.h"
 #include "smart_contract_sender_data.h"
+#include "fees.h"
 
 //*************************************************************
 //                          Mint
@@ -25,7 +26,7 @@ namespace
     void calc_fee(zera_txn::MintTXN *txn)
     {
         uint256_t equiv;
-        block_process::get_cur_equiv("$ZRA+0000", equiv);
+        zera_fees::get_cur_equiv("$ZRA+0000", equiv);
         zera_txn::InstrumentContract fee_contract;
         block_process::get_contract("$ZRA+0000", fee_contract);
 
@@ -96,9 +97,8 @@ namespace
         }
 
         base->mutable_public_key()->set_smart_contract_auth(sc_auth);
-        std::string wallet = sender.smart_contract_wallet;
         uint64_t nonce = 0;
-        nonce_tracker::get_nonce(wallet, nonce);
+        nonce_tracker::get_nonce(delegate_wallet, nonce);
         nonce = nonce + 1;
 
         base->set_fee_amount("1000000000000");
@@ -300,6 +300,7 @@ WasmEdge_Result DelegateMint(void *Data, const WasmEdge_CallingFrameContext *Cal
      * Params: {i32, i32, i32, i32, i32, i32, i32}
      * Returns: {i32}
      */
+    logging::print("[DelegateMint] Start");
     SenderDataType sender = *(SenderDataType *)Data;
 
     uint32_t ContractPointer = WasmEdge_ValueGetI32(In[0]);
@@ -311,10 +312,10 @@ WasmEdge_Result DelegateMint(void *Data, const WasmEdge_CallingFrameContext *Cal
     uint32_t WalletPointer = WasmEdge_ValueGetI32(In[4]);
     uint32_t WalletSize = WasmEdge_ValueGetI32(In[5]);
 
-    uint32_t DelegateWalletPointer = WasmEdge_ValueGetI32(In[4]);
-    uint32_t DelegateWalletSize = WasmEdge_ValueGetI32(In[5]);
+    uint32_t DelegateWalletPointer = WasmEdge_ValueGetI32(In[6]);
+    uint32_t DelegateWalletSize = WasmEdge_ValueGetI32(In[7]);
 
-    uint32_t TargetPointer = WasmEdge_ValueGetI32(In[6]);
+    uint32_t TargetPointer = WasmEdge_ValueGetI32(In[8]);
 
     std::vector<unsigned char> ContractKey(ContractSize);
     std::vector<unsigned char> AmountKey(AmountSize);
@@ -330,6 +331,7 @@ WasmEdge_Result DelegateMint(void *Data, const WasmEdge_CallingFrameContext *Cal
     {
         std::string contract_temp(reinterpret_cast<char *>(ContractKey.data()), ContractSize);
         contract_id = contract_temp;
+        logging::print("[DelegateMint] Contract ID:", contract_id, true);
     }
     else
     {
@@ -364,6 +366,7 @@ WasmEdge_Result DelegateMint(void *Data, const WasmEdge_CallingFrameContext *Cal
     {
         std::string wallet_temp(reinterpret_cast<char *>(WalletKey.data()), WalletSize);
         wallet = wallet_temp;
+        logging::print("[DelegateMint] Wallet:", wallet, true);
     }
     else
     {
@@ -376,10 +379,11 @@ WasmEdge_Result DelegateMint(void *Data, const WasmEdge_CallingFrameContext *Cal
     {
         std::string wallet_temp(reinterpret_cast<char *>(DelegateWalletKey.data()), DelegateWalletSize);
         delegate_wallet = wallet_temp;
+        logging::print("[DelegateMint] Delegate Wallet:", delegate_wallet, true);
     }
     else
     {
-        return Res3;
+        return Res4;
     }
 
     std::vector<uint8_t> wallet_decode;

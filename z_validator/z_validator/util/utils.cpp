@@ -14,6 +14,7 @@
 #include "wallets.h"
 #include "../temp_data/temp_data.h"
 #include "../logging/logging.h"
+#include "db_base.h"
 
 namespace
 {
@@ -80,16 +81,16 @@ namespace
             switch (hash[0])
             {
             case 'a':
-                hash_fee += a_HASH_FEE;
+                hash_fee += get_fee("a_HASH_FEE");
                 break;
             case 'b':
-                hash_fee += b_HASH_FEE;
+                hash_fee += get_fee("b_HASH_FEE");
                 break;
             case 'c':
-                hash_fee += c_HASH_FEE;
+                hash_fee += get_fee("c_HASH_FEE");
                 break;
             case 'r':
-                hash_fee *= RESTRICTED_KEY_FEE;
+                hash_fee *= get_fee("RESTRICTED_KEY_FEE");
                 break;
             default:
                 break;
@@ -125,10 +126,10 @@ uint256_t get_key_fee(const zera_txn::PublicKey &pk)
         switch (key_type)
         {
         case KeyType::ED25519:
-            key_fee += A_KEY_FEE;
+            key_fee += get_fee("A_KEY_FEE");
             break;
         case KeyType::ED448:
-            key_fee += B_KEY_FEE;
+            key_fee += get_fee("B_KEY_FEE");
             break;
         case KeyType::ERROR_TYPE:
             key_fee += 0;
@@ -142,60 +143,47 @@ uint256_t get_key_fee(const zera_txn::PublicKey &pk)
 
     return key_fee;
 }
-
-uint256_t get_txn_fee(const zera_txn::TRANSACTION_TYPE &txn_type)
+uint256_t get_fee(const std::string& fee_type)
 {
-    switch (txn_type)
+    std::string fee_key;
+
+    db_smart_contracts::get_single(NETWORK_FEE_PROXY, fee_key);
+
+    if(fee_key == "")
     {
-    case zera_txn::TRANSACTION_TYPE::COIN_TYPE:
-        return COIN_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::EXPENSE_RATIO_TYPE:
-        return EXPENSE_RATIO_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::ITEM_MINT_TYPE:
-        return ITEM_MINT_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::MINT_TYPE:
-        return MINT_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::NFT_TYPE:
-        return NFT_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::PROPOSAL_RESULT_TYPE:
-        return PROPOSAL_RESULT_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::PROPOSAL_TYPE:
-        return PROPOSAL_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::SELF_CURRENCY_EQUIV_TYPE:
-        return SELF_CURRENCY_EQUIV_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::AUTHORIZED_CURRENCY_EQUIV_TYPE:
-        return AUTHORIZED_CURRENCY_EQUIV_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE:
-        return SMART_CONTRACT_EXECUTE_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_TYPE:
-         return SMART_CONTRACT_DEPLOYMENT_TXN_FEE;
-     case zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE:
-        return SMART_CONTRACT_INSTANTIATE_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::UPDATE_CONTRACT_TYPE:
-        return UPDATE_CONTRACT_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::VOTE_TYPE:
-        return VOTE_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::VALIDATOR_REGISTRATION_TYPE:
-        return VALIDATOR_REGISTRATION_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::VALIDATOR_HEARTBEAT_TYPE:
-        return VALIDATOR_HEARTBEAT_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::FAST_QUORUM_TYPE:
-        return FAST_QUORUM_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::QUASH_TYPE:
-        return QUASH_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::REVOKE_TYPE:
-        return REVOKE_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::SBT_BURN_TYPE:
-        return BURN_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::COMPLIANCE_TYPE:
-        return COMPLIANCE_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::DELEGATED_VOTING_TYPE:
-        return DELEGATED_VOTE_TXN_FEE;
-    case zera_txn::TRANSACTION_TYPE::ALLOWANCE_TYPE:
-        return ALLOWANCE_TXN_FEE;
-    default:
         return 0;
     }
+
+    fee_key += "_" + fee_type;
+
+    std::string fee_data;
+    db_smart_contracts::get_single(fee_key, fee_data);
+
+    uint256_t fee(fee_data);
+
+    return fee;
+}
+uint256_t get_txn_fee(const zera_txn::TRANSACTION_TYPE &txn_type)
+{
+
+    std::string txn_type_name = zera_txn::TRANSACTION_TYPE_Name(txn_type);
+
+    std::string fee_key;
+    db_smart_contracts::get_single(NETWORK_FEE_PROXY, fee_key);
+
+    if(fee_key == "")
+    {
+        return 0;
+    }
+
+    fee_key += "_" + txn_type_name;
+
+    std::string fee_data;
+    db_smart_contracts::get_single(fee_key, fee_data);
+
+    uint256_t fee(fee_data);
+
+    return fee;
 }
 
 uint256_t get_txn_fee_contract(const zera_txn::TRANSACTION_TYPE &txn_type, const zera_txn::InstrumentContract *txn)

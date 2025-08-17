@@ -54,3 +54,6 @@ WasmEdge_Result AllowanceCurrent(void *Data, const WasmEdge_CallingFrameContext 
 
 WasmEdge_Result AllowanceDelegate(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
                                   const WasmEdge_Value *In, WasmEdge_Value *Out);
+                                  
+WasmEdge_Result AuthorizedCurrencyEquiv(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
+                                        const WasmEdge_Value *In, WasmEdge_Value *Out);

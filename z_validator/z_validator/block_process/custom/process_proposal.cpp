@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "../compliance/compliance.h"
 #include "../../logging/logging.h"
+#include "fees.h"
 
 namespace
 {
@@ -103,6 +104,11 @@ namespace
         if (!txn.ParseFromString(serialized_txn))
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_proposal.cpp: parse_validate: Failed to parse txn.", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
+        }
+
+        if(txn.base().has_interface_fee())
+        {
+            return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_proposal.cpp: parse_validate: Interface fee is not allowed in governance proposal.", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
         }
 
         // check the governance_auth key is correct for the contract_id (all contracts have a governance_auth key that is used to authenticate txns for that contract_id)
@@ -413,17 +419,17 @@ namespace
     }
     ZeraStatus calculate_fee(const zera_txn::InstrumentContract &contract, const zera_txn::GovernanceProposal *txn, uint256_t &fee_amount)
     {
-        block_process::ALLOWED_CONTRACT_FEE allowed_fee;
+        zera_fees::ALLOWED_CONTRACT_FEE allowed_fee;
 
-        if (!block_process::check_qualified(txn->base().fee_id()))
+        if (!zera_fees::check_qualified(txn->base().fee_id()))
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_nft.cpp: calculate_contract_fee: Contract requires qualified token fees", zera_txn::TXN_STATUS::INVALID_BASE_FEE_ID);
         }
         uint256_t multiplier = get_txn_fee(zera_txn::TRANSACTION_TYPE::PROPOSAL_TYPE);
 
         uint256_t fee_equiv;
-        block_process::get_cur_equiv(txn->base().fee_id(), fee_equiv);
-        return block_process::calculate_fees(fee_equiv, multiplier, txn->ByteSize(), txn->base().fee_amount(), fee_amount, contract.coin_denomination().amount(), txn->base().public_key());
+        zera_fees::get_cur_equiv(txn->base().fee_id(), fee_equiv);
+        return zera_fees::calculate_fees(fee_equiv, multiplier, txn->ByteSize(), txn->base().fee_amount(), fee_amount, contract.coin_denomination().amount(), txn->base().public_key());
     }
 
     ZeraStatus process_proposal_fees(const zera_txn::GovernanceProposal *txn, zera_txn::InstrumentContract &contract, zera_txn::TXNStatusFees &status_fees, uint256_t &fee_remainder, const std::string &fee_address)
@@ -460,14 +466,17 @@ namespace
 
         // store the remainder of the fee in temp wallet address (which is proposal hash)
         std::string proposal_wallet = "p_" + txn->base().hash();
+
         status = balance_tracker::subtract_txn_balance(wallet_adr, fee_contract.contract_id(), fee_remainder, txn->base().hash());
+
         if (!status.ok())
         {
             return status;
         }
+
         balance_tracker::add_txn_balance(proposal_wallet, fee_contract.contract_id(), fee_remainder, txn->base().hash());
         proposing::set_txn_token_fees(txn->base().hash(), fee_contract.contract_id(), proposal_wallet, fee_remainder);
-        status = block_process::process_fees(fee_contract, divided_fee, wallet_adr, fee_contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
+        status = zera_fees::process_fees(fee_contract, divided_fee, wallet_adr, fee_contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
 
         if (status.ok())
         {
@@ -477,10 +486,16 @@ namespace
 
         return status;
     }
-    ZeraStatus check_parameters_prop(const zera_txn::GovernanceProposal *txn, zera_txn::InstrumentContract &contract, bool timed)
+    ZeraStatus check_parameters_prop(const zera_txn::GovernanceProposal *txn, zera_txn::InstrumentContract &contract, bool timed, zera_txn::TXNStatusFees &status_fees)
     {
+        ZeraStatus status = zera_fees::process_interface_fees(txn->base(), status_fees);
 
-        ZeraStatus status = restricted_keys_check::check_restricted_keys(txn, contract, zera_txn::TRANSACTION_TYPE::PROPOSAL_TYPE, timed);
+        if (!status.ok())
+        {
+            return status;
+        }
+
+        status = restricted_keys_check::check_restricted_keys(txn, contract, zera_txn::TRANSACTION_TYPE::PROPOSAL_TYPE, timed);
 
         if(!status.ok())
         {
@@ -522,7 +537,7 @@ ZeraStatus block_process::process_txn<zera_txn::GovernanceProposal>(const zera_t
     ZeraStatus status;
     if (!timed)
     {
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {
@@ -542,7 +557,7 @@ ZeraStatus block_process::process_txn<zera_txn::GovernanceProposal>(const zera_t
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, status.read_status());
     }
 
-    status = check_parameters_prop(txn, contract, timed);
+    status = check_parameters_prop(txn, contract, timed, status_fees);
     status_fees.set_status(status.txn_status());
 
     if (status.code() != ZeraStatus::Code::OK)

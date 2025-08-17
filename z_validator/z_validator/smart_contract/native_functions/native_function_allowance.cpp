@@ -9,10 +9,10 @@
 #include "../../block_process/block_process.h"
 #include "utils.h"
 #include "smart_contract_sender_data.h"
+#include "fees.h"
 
 namespace
-{
-
+{    
     // Function to validate if seconds_temp is a valid uint32_t
     bool isValidUint32(const std::string &seconds_temp)
     {
@@ -46,7 +46,7 @@ namespace
         uint256_t txn_fee_amount;
 
         uint256_t equiv;
-        block_process::get_cur_equiv("$ZRA+0000", equiv);
+        zera_fees::get_cur_equiv("$ZRA+0000", equiv);
         zera_txn::InstrumentContract fee_contract;
         block_process::get_contract("$ZRA+0000", fee_contract);
 
@@ -78,7 +78,15 @@ namespace
 
     void sender_set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
-        base->mutable_public_key()->set_single(sender.pub_key);
+        if(smart_contract_service::gov_key(sender.pub_key))
+        {
+            base->mutable_public_key()->set_governance_auth(sender.pub_key);
+        }
+        else
+        {
+            base->mutable_public_key()->set_single(sender.pub_key);
+        }
+
         std::string wallet = sender.wallet_address;
         uint64_t nonce = 0;
         nonce_tracker::get_nonce(wallet, nonce);

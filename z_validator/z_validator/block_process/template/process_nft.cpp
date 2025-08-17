@@ -6,6 +6,7 @@
 #include "validators.h"
 #include "../block_process.h"
 #include "../compliance/compliance.h"
+#include "fees.h"
 
 namespace
 {
@@ -13,16 +14,16 @@ namespace
     ZeraStatus calculate_contract_fee(const zera_txn::InstrumentContract &contract, const zera_validator::NFT &nft, const zera_txn::NFTTXN *txn, uint256_t &contract_fee_amount)
     {
 
-        block_process::ALLOWED_CONTRACT_FEE allowed_fee;
-        ZeraStatus status = block_process::check_allowed_contract_fee(nft.contract_fees().allowed_fee_instrument(), txn->contract_fee_id(), allowed_fee);
+        zera_fees::ALLOWED_CONTRACT_FEE allowed_fee;
+        ZeraStatus status = zera_fees::check_allowed_contract_fee(nft.contract_fees().allowed_fee_instrument(), txn->contract_fee_id(), allowed_fee);
 
         if (!status.ok())
         {
             return status;
         }
-        if (allowed_fee == block_process::ALLOWED_CONTRACT_FEE::QUALIFIED)
+        if (allowed_fee == zera_fees::ALLOWED_CONTRACT_FEE::QUALIFIED)
         {
-            if (!block_process::check_qualified(txn->contract_fee_id()))
+            if (!zera_fees::check_qualified(txn->contract_fee_id()))
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_nft.cpp: calculate_contract_fee: Contract requires qualified token fees", zera_txn::TXN_STATUS::INVALID_CONTRACT_FEE_ID);
             }
@@ -30,7 +31,7 @@ namespace
 
         // get the currency equivalent multiplier
         uint256_t fee_equiv;
-        block_process::get_cur_equiv(txn->contract_fee_id(), fee_equiv);
+        zera_fees::get_cur_equiv(txn->contract_fee_id(), fee_equiv);
         uint256_t denomination(contract.coin_denomination().amount());
         uint256_t contract_fee(nft.contract_fees().fee());
         uint256_t item_fee = (denomination * contract_fee);

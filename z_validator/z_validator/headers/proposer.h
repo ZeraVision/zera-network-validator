@@ -139,7 +139,7 @@ public:
         status_fee.set_smart_contract(sc_txn);
         std::string execute_key = "BLOCK_TXNS_" + txn_hash;
 
-        if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE)
+        if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE && ValidatorConfig::get_required_version() >= 101005))
         {
             db_smart_contracts::store_single(execute_key, block_txns->SerializeAsString());
         }
@@ -150,20 +150,22 @@ public:
             status = block_process::process_txn(txn, status_fee, txn_type, timed, fee_address, sc_txn);
             status.set_status(status_fee.status());
 
+
             if (status.ok())
             {
                 if (status_fee.status() != zera_txn::TXN_STATUS::OK)
                 {
-                    logging::print(txn->base().memo(), "txn failed!");
+                    logging::print(txn->base().memo(), "txn failed!", true);
                 }
                 else
                 {
-                    logging::print(txn->base().memo(), "txn passed!");
+                    logging::print(txn->base().memo(), "txn passed!", true);
                 }
 
-                if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE)
+                if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE && ValidatorConfig::get_required_version() >= 101005))
                 {
                     bool add_txns = false;
+                    auto version = ValidatorConfig::get_required_version();
 
                     if (ValidatorConfig::get_required_version() >= 101003)
                     {
@@ -174,7 +176,6 @@ public:
                     }
                     else
                     {
-
                         add_txns = true;
                     }
 
@@ -240,14 +241,15 @@ public:
             status = block_process::process_txn(txn, status_fee, expense_results, zera_txn::TRANSACTION_TYPE::EXPENSE_RATIO_TYPE, fee_address, sc_txn);
             if (status.ok())
             {
+
                 if (status_fee.status() != zera_txn::TXN_STATUS::OK)
                 {
-                    logging::print(txn->base().memo(), "txn failed!");
+                    logging::print(txn->base().memo(), "txn failed!", true);
                 }
                 else
                 {
                     block_txns->add_expense_ratio_result_txns()->CopyFrom(*expense_results);
-                    logging::print(txn->base().memo(), "txn passed!");
+                    logging::print(txn->base().memo(), "txn passed!", true);
                 }
                 status_fee.set_txn_hash(txn->base().hash());
                 block_txns->add_txn_fees_and_status()->CopyFrom(status_fee);

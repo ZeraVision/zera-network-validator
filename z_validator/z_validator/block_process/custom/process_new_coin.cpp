@@ -14,6 +14,7 @@
 #include "../../temp_data/temp_data.h"
 #include "../../compliance/compliance.h"
 #include "../../logging/logging.h"
+#include "fees.h"
 
 namespace
 {
@@ -49,9 +50,9 @@ namespace
         }
 
         uint256_t fee_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
         uint256_t priority_equiv;
-        block_process::get_cur_equiv(priority_fee_id, priority_equiv);
+        zera_fees::get_cur_equiv(priority_fee_id, priority_equiv);
 
         logging::print("fee_equiv:", fee_equiv.str());
         logging::print("priority_equiv:", priority_equiv.str());
@@ -70,9 +71,9 @@ namespace
         }
 
         uint256_t fee_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
         uint256_t txn_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
 
         perc_fee_amount = (perc_fee_amount * txn_equiv) / fee_equiv;
     }
@@ -107,7 +108,7 @@ namespace
         uint256_t contract_fee(contract.contract_fees().fee());
         uint256_t denomination(contract.coin_denomination().amount());
         uint256_t contract_equiv;
-        block_process::get_cur_equiv(contract.contract_id(), contract_equiv);
+        zera_fees::get_cur_equiv(contract.contract_id(), contract_equiv);
 
         switch (contract.contract_fees().contract_fee_type())
         {
@@ -116,7 +117,7 @@ namespace
             // contract fee has quintillion multiplier
             // fee_equiv has 1 quintillion multiplier
             uint256_t fee_equiv;
-            block_process::get_cur_equiv(txn.contract_fee_id(), fee_equiv);
+            zera_fees::get_cur_equiv(txn.contract_fee_id(), fee_equiv);
             contract_fee_amount = (contract_fee * denomination) / fee_equiv;
             break;
         }
@@ -146,10 +147,10 @@ namespace
         return ZeraStatus();
     }
 
-    ZeraStatus check_auth(const zera_txn::TransferAuthentication &auth, const zera_txn::TRANSACTION_TYPE &txn_type, bool sc_txn)
+    ZeraStatus check_auth(const zera_txn::TransferAuthentication &auth, const zera_txn::TRANSACTION_TYPE &txn_type, bool sc_txn, const bool gov)
     {
         ZeraStatus status;
-        if (sc_txn)
+        if (sc_txn || gov)
         {
             if (auth.public_key_size() != auth.nonce_size())
             {
@@ -231,17 +232,17 @@ namespace
             return status;
         }
         // check if fee type is compatible with token
-        block_process::ALLOWED_CONTRACT_FEE allowed_fee;
-        status = block_process::check_allowed_contract_fee(contract.contract_fees().allowed_fee_instrument(), txn->contract_fee_id(), allowed_fee);
+        zera_fees::ALLOWED_CONTRACT_FEE allowed_fee;
+        status = zera_fees::check_allowed_contract_fee(contract.contract_fees().allowed_fee_instrument(), txn->contract_fee_id(), allowed_fee);
 
         if (!status.ok())
         {
             return status;
         }
 
-        if (allowed_fee == block_process::ALLOWED_CONTRACT_FEE::QUALIFIED)
+        if (allowed_fee == zera_fees::ALLOWED_CONTRACT_FEE::QUALIFIED)
         {
-            if (!block_process::check_qualified(txn->contract_fee_id()))
+            if (!zera_fees::check_qualified(txn->contract_fee_id()))
             {
                 return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_coin.cpp: process_contract_fee: Contract requires qualified token fees", zera_txn::TXN_STATUS::INVALID_CONTRACT_FEE_ID);
             }
@@ -265,7 +266,7 @@ namespace
             uint256_t transfer_fee_amount = contract_fee_amount;
             std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(0));
             std::string txn_hash = txn->base().hash();
-            status = block_process::process_fees(contract, transfer_fee_amount, wallet_adr, contract_fee_symbol, false, status_fees, txn_hash, fee_address);
+            status = zera_fees::process_fees(contract, transfer_fee_amount, wallet_adr, contract_fee_symbol, false, status_fees, txn_hash, fee_address);
             if (!status.ok())
             {
                 return status;
@@ -286,7 +287,7 @@ namespace
 
                 std::string wallet_adr = wallets::generate_wallet(txn->auth().public_key(x));
                 std::string txn_hash = txn->base().hash();
-                status = block_process::process_fees(contract, transfer_fee_amount, wallet_adr, contract_fee_symbol, false, status_fees, txn_hash, fee_address);
+                status = zera_fees::process_fees(contract, transfer_fee_amount, wallet_adr, contract_fee_symbol, false, status_fees, txn_hash, fee_address);
                 if (!status.ok())
                 {
                     return status;
@@ -346,12 +347,12 @@ namespace
         // check to see if token is qualified and get usd_equiv if it is, or send back zra usd equiv if it is not qualified
         uint256_t equiv;
 
-        if (!block_process::check_qualified(contract.contract_id()))
+        if (!zera_fees::check_qualified(contract.contract_id()))
         {
             return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_utils.cpp: process_simple_fees: invalid token for fees: " + contract.contract_id());
         }
 
-        block_process::get_cur_equiv(contract.contract_id(), equiv);
+        zera_fees::get_cur_equiv(contract.contract_id(), equiv);
 
         if (!is_valid_uint256(txn->base().fee_amount()))
         {
@@ -387,7 +388,7 @@ namespace
                 }
 
                 std::string wallet_key = wallets::generate_wallet(txn->auth().public_key(x));
-                status = block_process::process_fees(contract, fee_amount, wallet_key, contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
+                status = zera_fees::process_fees(contract, fee_amount, wallet_key, contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
 
                 if (!status.ok())
                 {
@@ -409,7 +410,7 @@ namespace
             }
 
             std::string wallet_key = wallets::generate_wallet(txn->auth().public_key(0));
-            status = block_process::process_fees(contract, fee_amount, wallet_key, contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
+            status = zera_fees::process_fees(contract, fee_amount, wallet_key, contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
 
             if (!status.ok())
             {
@@ -557,11 +558,18 @@ namespace
 
         return ZeraStatus();
     }
-    ZeraStatus check_transfer_parameters(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn, const bool allowance)
+    ZeraStatus check_transfer_parameters(const zera_txn::CoinTXN *txn, zera_txn::TXNStatusFees &status_fees, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed, const std::string &fee_address, bool sc_txn, const bool allowance, const bool gov)
     {
         ZeraStatus status;
 
-        status = check_auth(txn->auth(), txn_type, sc_txn);
+        status = zera_fees::process_interface_fees(txn, status_fees);
+
+        if (!status.ok())
+        {
+            return status;
+        }
+
+        status = check_auth(txn->auth(), txn_type, sc_txn, gov);
         if (!status.ok())
         {
             return status;
@@ -694,7 +702,7 @@ ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN
     bool allowance = false;
     if (txn->base().public_key().has_governance_auth())
     {
-        ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash());
+        ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {
@@ -743,7 +751,7 @@ ZeraStatus block_process::process_txn<zera_txn::CoinTXN>(const zera_txn::CoinTXN
         return status;
     }
 
-    status = check_transfer_parameters(txn, status_fees, txn_type, timed, fee_address, sc_txn, allowance);
+    status = check_transfer_parameters(txn, status_fees, txn_type, timed, fee_address, sc_txn, allowance, gov);
     int x = 0;
 
     if (allowance && status.ok())

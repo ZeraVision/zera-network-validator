@@ -20,13 +20,14 @@ ZeraStatus block_process::process_txn<zera_txn::RequiredVersion>(const zera_txn:
     }
     std::string key = wallets::get_public_key_string(txn->base().public_key());
 
-    if(key != "gov_$ZRA+0000")
+    //change log
+    if(key != "gov_$ZRA+0000" && key != "gov_$ZIP+0000")
     {
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_required_version.cpp: check_restricted: Governance auth from ZRA is required.", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
     }
 
     // check nonce, if its bad return failed txn
-    ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash());
+    ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash(), sc_txn);
 
     if(!status.ok())
     {

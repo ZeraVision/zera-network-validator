@@ -37,6 +37,9 @@ WasmEdge_Result SmartContractWallet(void *Data, const WasmEdge_CallingFrameConte
 WasmEdge_Result CurrentSmartContractWallet(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
                                            const WasmEdge_Value *In, WasmEdge_Value *Out);
 
+WasmEdge_Result CalledSmartContractWallet(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
+                                          const WasmEdge_Value *In, WasmEdge_Value *Out);
+
 WasmEdge_Result CurrentSmartContractBalance(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt,
                                             const WasmEdge_Value *In, WasmEdge_Value *Out);
 

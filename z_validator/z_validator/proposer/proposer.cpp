@@ -40,6 +40,7 @@ void proposing::set_txn_token_fees(std::string txn_hash, std::string contract_id
         txn_token_fees[txn_hash][address][contract_id] = amount;
     }
 }
+
 void proposing::add_temp_wallet_balance(const std::vector<std::string> &txn_hash_vec, const std::string &fee_address)
 {
 
@@ -253,6 +254,15 @@ ZeraStatus proposing::make_block(zera_validator::Block *block, const transaction
     std::vector<std::string> txn_hash_vec;
     std::vector<std::string> allowance_txn_hash_vec;
     txn_hash_tracker::get_hash(txn_hash_vec, allowance_txn_hash_vec);
+
+    if (ValidatorConfig::get_required_version() >= 101008)
+    {
+        for (auto result : block_txns->proposal_result_txns())
+        {
+            txn_hash_vec.push_back(result.proposal_id());
+        }
+    }
+
     set_all_token_fees(block, txn_hash_vec, ValidatorConfig::get_fee_address_string());
     add_temp_wallet_balance(txn_hash_vec, ValidatorConfig::get_fee_address_string());
     allowance_tracker::add_block_allowance(allowance_txn_hash_vec);

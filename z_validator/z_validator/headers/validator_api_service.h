@@ -32,6 +32,7 @@ public:
     grpc::Status Denomination(grpc::ServerContext *context, const zera_api::DenominationRequest *request, zera_api::DenominationResponse *response) override;
     grpc::Status Database(grpc::ServerContext *context, const zera_api::DatabaseRequest *request, zera_api::DatabaseResponse *response) override;
     grpc::Status Block(grpc::ServerContext *context, const zera_api::BlockRequest *request, zera_api::BlockResponse *response) override;
+    grpc::Status ProposalLedger(grpc::ServerContext *context, const zera_api::ProposalLedgerRequest *request, zera_api::ProposalLedgerResponse *response) override;
 
     void StartService(const std::string &port = "50053")
     {
@@ -70,6 +71,7 @@ private:
     grpc::Status RecieveRequestDenomination(grpc::ServerContext *context, const zera_api::DenominationRequest *request, zera_api::DenominationResponse *response);
     grpc::Status RecieveRequestDatabase(grpc::ServerContext *context, const zera_api::DatabaseRequest *request, zera_api::DatabaseResponse *response);
     grpc::Status RecieveRequestBlock(grpc::ServerContext *context, const zera_api::BlockRequest *request, zera_api::BlockResponse *response);
+    grpc::Status RecieveRequestProposalLedger(grpc::ServerContext *context, const zera_api::ProposalLedgerRequest *request, zera_api::ProposalLedgerResponse *response);
 
     static bool check_rate_limit(grpc::ServerContext *context)
     {
