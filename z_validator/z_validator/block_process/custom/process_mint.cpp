@@ -124,7 +124,7 @@ ZeraStatus block_process::process_txn<zera_txn::MintTXN>(const zera_txn::MintTXN
 
     if (!timed)
     {
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {

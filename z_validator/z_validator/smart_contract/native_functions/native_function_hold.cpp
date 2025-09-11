@@ -163,7 +163,16 @@ namespace
         nonce = nonce + 1;
 
         auth->add_nonce(nonce);
-        auth->add_public_key()->set_single(sender.pub_key);
+
+        if(smart_contract_service::gov_key(sender.pub_key))
+        {
+            auth->add_public_key()->set_governance_auth(sender.pub_key);
+        }
+        else
+        {
+            auth->add_public_key()->set_single(sender.pub_key);
+        }
+
     }
 
     void set_input(zera_txn::InputTransfers *input, const std::string &amount)
@@ -187,11 +196,13 @@ namespace
         zera_txn::TXNS block_txns;
         block_txns.ParseFromString(value);
         std::string fee_address = sender.fee_address;
-        // ZeraStatus unpack_process_wrapper(TXType *txn, zera_txn::TXNS *block_txns, const zera_txn::TRANSACTION_TYPE &txn_type, bool timed = false, const std::string &fee_address = "", bool sc_txn = false)
+        
+        logging::print("sc execute_key: ", sender.block_txns_key, true);
         ZeraStatus status = proposing::unpack_process_wrapper(&txn, &block_txns, zera_txn::TRANSACTION_TYPE::COIN_TYPE, false, fee_address, true);
 
         if (status.ok())
         {
+            logging::print("sc status ok", true);
             sender.txn_hashes.push_back(txn.base().hash());
             block_txns.add_coin_txns()->CopyFrom(txn);
             txn_hash_tracker::add_sc_hash(txn.base().hash());

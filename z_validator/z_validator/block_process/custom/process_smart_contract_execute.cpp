@@ -131,7 +131,14 @@ namespace
 
         try
         {
-            std::vector<std::any> results = smart_contract_service::eval(sender_pub_key, sender_wallet_adr, instance_name, db_contract.binary_code(), db_contract.language(), txn->function(), params_vector, dependencies_vector, txn->base().hash(), timestamp, block_txns_key, fee_address, smart_contract_wallet, gas_approved, used_gas, txn_hashes);
+            std::vector<std::any> results = smart_contract_service::eval(sender_pub_key, sender_wallet_adr, 
+                instance_name, db_contract.binary_code(),
+                 db_contract.language(), txn->function(), 
+                 params_vector, dependencies_vector, 
+                 txn->base().hash(), timestamp, 
+                 block_txns_key, fee_address, 
+                 smart_contract_wallet, gas_approved, 
+                 used_gas, txn_hashes);
 
             // store result
             for (int i = results.size() - 1; i >= 0; --i)
@@ -203,7 +210,7 @@ ZeraStatus block_process::process_txn<zera_txn::SmartContractExecuteTXN>(const z
     if (!timed)
     {
         // check nonce, if its bad return failed txn
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {

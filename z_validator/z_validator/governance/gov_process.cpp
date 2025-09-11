@@ -215,8 +215,10 @@ namespace
 
         result->set_support_cur_equiv(boost::lexical_cast<std::string>(yes_amount));
         result->set_against_cur_equiv(boost::lexical_cast<std::string>(no_amount));
-
         result->set_passed(calculate_passed(result->support_cur_equiv(), result->against_cur_equiv(), contract, fast_quorum));
+
+        //TESTING: REMOVE THIS
+        //result->set_passed(true);
     }
 
     bool calculate_passed_options(const zera_txn::ProposalResult *result, const zera_txn::InstrumentContract &contract, bool fast_quorum = false)
@@ -500,6 +502,9 @@ namespace
             google::protobuf::Timestamp process_date;
             process_date.ParseFromString(values.at(x));
 
+
+            //TESTING: REMOVE THIS
+            //if (block->block_header().timestamp().seconds() >= (process_date.seconds() - 345600))
             if (block->block_header().timestamp().seconds() >= process_date.seconds())
             {
                 wrapper.add_proposal_ids(keys.at(x));

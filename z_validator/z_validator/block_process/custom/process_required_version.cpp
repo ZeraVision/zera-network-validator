@@ -26,7 +26,7 @@ ZeraStatus block_process::process_txn<zera_txn::RequiredVersion>(const zera_txn:
     }
 
     // check nonce, if its bad return failed txn
-    ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash());
+    ZeraStatus status = block_process::check_nonce(txn->base().public_key(), 0, txn->base().hash(), sc_txn);
 
     if(!status.ok())
     {

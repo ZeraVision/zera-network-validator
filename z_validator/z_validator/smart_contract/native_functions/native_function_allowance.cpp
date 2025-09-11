@@ -11,8 +11,7 @@
 #include "smart_contract_sender_data.h"
 
 namespace
-{
-
+{    
     // Function to validate if seconds_temp is a valid uint32_t
     bool isValidUint32(const std::string &seconds_temp)
     {
@@ -78,7 +77,15 @@ namespace
 
     void sender_set_base(zera_txn::BaseTXN *base, SenderDataType &sender)
     {
-        base->mutable_public_key()->set_single(sender.pub_key);
+        if(smart_contract_service::gov_key(sender.pub_key))
+        {
+            base->mutable_public_key()->set_governance_auth(sender.pub_key);
+        }
+        else
+        {
+            base->mutable_public_key()->set_single(sender.pub_key);
+        }
+      
         std::string wallet = sender.wallet_address;
         uint64_t nonce = 0;
         nonce_tracker::get_nonce(wallet, nonce);

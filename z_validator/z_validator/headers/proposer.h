@@ -141,6 +141,7 @@ public:
 
         if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE)
         {
+            logging::print("execute_key: ", execute_key, true);
             db_smart_contracts::store_single(execute_key, block_txns->SerializeAsString());
         }
 
@@ -150,20 +151,22 @@ public:
             status = block_process::process_txn(txn, status_fee, txn_type, timed, fee_address, sc_txn);
             status.set_status(status_fee.status());
 
+
             if (status.ok())
             {
                 if (status_fee.status() != zera_txn::TXN_STATUS::OK)
                 {
-                    logging::print(txn->base().memo(), "txn failed!");
+                    logging::print(txn->base().memo(), "txn failed!", true);
                 }
                 else
                 {
-                    logging::print(txn->base().memo(), "txn passed!");
+                    logging::print(txn->base().memo(), "txn passed!", true);
                 }
 
                 if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE)
                 {
                     bool add_txns = false;
+                    auto version = ValidatorConfig::get_required_version();
 
                     if (ValidatorConfig::get_required_version() >= 101003)
                     {
@@ -174,7 +177,6 @@ public:
                     }
                     else
                     {
-
                         add_txns = true;
                     }
 
@@ -240,6 +242,7 @@ public:
             status = block_process::process_txn(txn, status_fee, expense_results, zera_txn::TRANSACTION_TYPE::EXPENSE_RATIO_TYPE, fee_address, sc_txn);
             if (status.ok())
             {
+
                 if (status_fee.status() != zera_txn::TXN_STATUS::OK)
                 {
                     logging::print(txn->base().memo(), "txn failed!");

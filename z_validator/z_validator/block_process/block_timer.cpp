@@ -175,18 +175,23 @@ namespace
         std::string prefix = "alive_";
         std::string validator_data;
         std::string gen_key = wallets::get_public_key_string(block_manager.new_header.public_key());
+      
+        logging::print("checking validator gen_key:", base58_encode_public_key(gen_key), true);
 
         if (!db_validators::get_single(gen_key, validator_data))
         {
             if (block_manager.proposer_index == 0)
             {
                 std::string pub = wallets::get_public_key_string(block_manager.proposers.at(0).public_key());
+                logging::print("validator alive:", base58_encode_public_key(pub), true);
                 db_validator_lookup::remove_single(prefix + pub);
                 return;
             }
             else
             {
                 gen_key == ValidatorConfig::get_gen_public_key();
+                logging::print("checking validator gen_key:", base58_encode_public_key(gen_key), true);
+              
                 db_validators::get_single(gen_key, validator_data);
             }
         }
@@ -194,13 +199,16 @@ namespace
         zera_txn::Validator proposer;
         proposer.ParseFromString(validator_data);
         std::string new_pub = wallets::get_public_key_string(proposer.public_key());
+        logging::print("checking validator new_pub:", base58_encode_public_key(new_pub), true);
 
         for (int x = 0; x < block_manager.proposers.size(); x++)
         {
             std::string pub = wallets::get_public_key_string(block_manager.proposers.at(x).public_key());
+            logging::print("checking validator pub:", base58_encode_public_key(pub), true);
 
             if (new_pub == pub)
             {
+                logging::print("validator is alive", true);
                 db_validator_lookup::remove_single(prefix + pub);
                 return;
             }
@@ -213,10 +221,12 @@ namespace
 
             uint64_t val = std::stoull(value) + 1;
             db_validator_lookup::store_single(prefix + pub, std::to_string(val));
+            logging::print("validator failure: " + std::to_string(val), ": " + base58_encode_public_key(pub), true);
             if (val >= 2)
             {
                 proposer.set_online(false);
                 db_validators::store_single(gen_key, proposer.SerializeAsString());
+                logging::print("validator is dead", true);
             }
         }
     }

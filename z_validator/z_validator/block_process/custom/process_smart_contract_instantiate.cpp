@@ -126,7 +126,14 @@ namespace
 
         try
         {
-            smart_contract_service::eval(sender_pub_key, sender_wallet_adr, instance_name, db_contract.binary_code(), db_contract.language(), constructor_function_name, params_vector, dependencies, txn->base().hash(), timestamp, block_txns_key, fee_address, smart_contract_wallet, gas_approved, used_gas, txn_hashes);
+            smart_contract_service::eval(sender_pub_key, sender_wallet_adr, 
+                instance_name, db_contract.binary_code(), 
+                db_contract.language(), constructor_function_name, 
+                params_vector, dependencies, 
+                txn->base().hash(), timestamp, 
+                block_txns_key, fee_address, 
+                smart_contract_wallet, gas_approved, 
+                used_gas, txn_hashes);
 
             nonce_tracker::add_sc_to_used_nonce();
             txn_hash_tracker::add_sc_to_hash();
@@ -191,7 +198,7 @@ ZeraStatus block_process::process_txn<zera_txn::SmartContractInstantiateTXN>(con
     if (!timed)
     {
         // check nonce, if its bad return failed txn
-        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash());
+        status = block_process::check_nonce(txn->base().public_key(), nonce, txn->base().hash(), sc_txn);
 
         if (!status.ok())
         {

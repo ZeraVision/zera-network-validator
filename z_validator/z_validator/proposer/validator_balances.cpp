@@ -34,6 +34,7 @@ namespace
         
         for (auto version : required_version.version())
         {
+            logging::print("Validator version:", std::to_string(validator.version()), "Required version:", std::to_string(version), true);
             if (validator.version() == version)
             {
                 return true;
