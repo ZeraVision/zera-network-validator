@@ -85,7 +85,7 @@ namespace
         {
             base->mutable_public_key()->set_single(sender.pub_key);
         }
-
+      
         std::string wallet = sender.wallet_address;
         uint64_t nonce = 0;
         nonce_tracker::get_nonce(wallet, nonce);
