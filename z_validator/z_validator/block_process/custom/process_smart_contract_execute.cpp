@@ -7,6 +7,7 @@
 #include <any>
 #include "../logging/logging.h"
 #include "validators.h"
+#include "fees.h"
 
 namespace
 {
@@ -18,7 +19,7 @@ namespace
 
         auto wallet_adr = wallets::generate_wallet(txn->base().public_key());
 
-        block_process::process_fees(contract, fees, wallet_adr, contract_id, true, status_fees, txn->base().hash(), fee_address, true);
+        zera_fees::process_fees(contract, fees, wallet_adr, contract_id, true, status_fees, txn->base().hash(), fee_address, true);
     }
 
     void gas_fees(const zera_txn::SmartContractExecuteTXN *txn, const uint64_t &used_gas, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address)
@@ -27,15 +28,15 @@ namespace
         std::string contract_id = txn->base().fee_id();
         zera_txn::InstrumentContract contract;
 
-        block_process::get_cur_equiv(contract_id, usd_equiv);
+        zera_fees::get_cur_equiv(contract_id, usd_equiv);
         block_process::get_contract(contract_id, contract);
         uint256_t denomination(contract.coin_denomination().amount());
-        uint256_t gas_used_fee = used_gas * GAS_FEE;
+        uint256_t gas_used_fee = used_gas * get_fee("GAS_FEE");
 
         uint256_t gas_used_fee_value = (gas_used_fee * denomination) / usd_equiv;
         auto wallet_adr = wallets::generate_wallet(txn->base().public_key());
 
-        block_process::process_fees(contract, gas_used_fee_value, wallet_adr, contract_id, true, status_fees, txn->base().hash(), fee_address);
+        zera_fees::process_fees(contract, gas_used_fee_value, wallet_adr, contract_id, true, status_fees, txn->base().hash(), fee_address);
     }
     ZeraStatus gas_limit_calc(const uint256_t &fee_taken, const zera_txn::SmartContractExecuteTXN *txn, uint64_t &gas_approved, uint256_t &fee_left)
     {
@@ -43,13 +44,13 @@ namespace
         std::string contract_id = txn->base().fee_id();
         zera_txn::InstrumentContract contract;
 
-        block_process::get_cur_equiv(contract_id, usd_equiv);
+        zera_fees::get_cur_equiv(contract_id, usd_equiv);
         block_process::get_contract(contract_id, contract);
         uint256_t denomination(contract.coin_denomination().amount());
 
         uint256_t fee_left_value = (fee_left * usd_equiv) / denomination;
 
-        uint256_t gas = fee_left_value / GAS_FEE;
+        uint256_t gas = fee_left_value / get_fee("GAS_FEE");
         logging::print("fee_taken:", fee_taken.str());
         logging::print("gas_approved:", gas.str());
 
@@ -61,6 +62,14 @@ namespace
     }
     ZeraStatus check_execute(const zera_txn::SmartContractExecuteTXN *txn, zera_txn::TXNStatusFees &status_fees, const std::string &fee_address, const uint64_t &gas_approved, uint64_t &used_gas, std::vector<std::string> &txn_hashes)
     {
+
+        ZeraStatus status1 = zera_fees::process_interface_fees(txn->base(), status_fees);
+
+        if (!status1.ok())
+        {
+            return status1;
+        }
+
         std::vector<std::any> params_vector;
 
         for (auto param : txn->parameters())
@@ -235,7 +244,7 @@ ZeraStatus block_process::process_txn<zera_txn::SmartContractExecuteTXN>(const z
 
     uint256_t fee_taken = 0;
     // process base fees. If wallet cannot pay fees or anything else is wrong with the fees return failed txn
-    status = block_process::process_simple_fees_gas(txn, status_fees, zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE, fee_taken, fee_address);
+    status = zera_fees::process_simple_fees_gas(txn, status_fees, zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE, fee_taken, fee_address);
 
     if (!status.ok())
     {
@@ -244,6 +253,11 @@ ZeraStatus block_process::process_txn<zera_txn::SmartContractExecuteTXN>(const z
 
     uint64_t gas_approved;
     uint256_t fee_approved(txn->base().fee_amount());
+    if(fee_approved < fee_taken)
+    {
+        return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_smart_contract_execute.cpp: process_txn: Fee taken is greater than fee approved", zera_txn::TXN_STATUS::INVALID_TXN_DATA);
+    }
+
     uint256_t fee_left = fee_approved - fee_taken;
     uint64_t used_gas = 0;
     std::string wallet_adr = wallets::generate_wallet(txn->base().public_key());

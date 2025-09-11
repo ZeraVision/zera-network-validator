@@ -13,5 +13,6 @@ void set_explorer_config();
 std::string get_seconds_key(const std::time_t &t);
 
 uint256_t get_txn_fee_contract(const zera_txn::TRANSACTION_TYPE &txn_type, const zera_txn::InstrumentContract *txn);
+uint256_t get_fee(const std::string& fee_type);
 uint256_t get_txn_fee(const zera_txn::TRANSACTION_TYPE &txn_type);
 std::string get_txn_key(uint64_t nonce, std::string hash);

@@ -38,4 +38,8 @@ grpc::Status APIImpl::Block(grpc::ServerContext *context, const zera_api::BlockR
 {
     return RecieveRequestBlock(context, request, response);
 }
+grpc::Status APIImpl::ProposalLedger(grpc::ServerContext *context, const zera_api::ProposalLedgerRequest *request, zera_api::ProposalLedgerResponse *response)
+{
+    return RecieveRequestProposalLedger(context, request, response);
+}
 

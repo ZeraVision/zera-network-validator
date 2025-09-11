@@ -175,7 +175,6 @@ namespace
         std::string prefix = "alive_";
         std::string validator_data;
         std::string gen_key = wallets::get_public_key_string(block_manager.new_header.public_key());
-      
         logging::print("checking validator gen_key:", base58_encode_public_key(gen_key), true);
 
         if (!db_validators::get_single(gen_key, validator_data))
@@ -191,7 +190,6 @@ namespace
             {
                 gen_key == ValidatorConfig::get_gen_public_key();
                 logging::print("checking validator gen_key:", base58_encode_public_key(gen_key), true);
-              
                 db_validators::get_single(gen_key, validator_data);
             }
         }

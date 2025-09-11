@@ -750,7 +750,10 @@ namespace
         {
             if (!broadcast)
             {
-                gov_process::check_ledgers(&block);
+                if(!db_transactions::exist("1"))
+                {
+                    gov_process::check_ledgers(&block);
+                }
             }
 
             if (db_transactions::exist("1"))
@@ -902,6 +905,14 @@ namespace
 
         txn_hash_tracker::get_hash(txn_hash_vec, allowance_txn_hash_vec);
 
+        if (ValidatorConfig::get_required_version() >= 101008)
+        {
+            for (auto result : block_txns->proposal_result_txns())
+            {
+                txn_hash_vec.push_back(result.proposal_id());
+            }
+        }
+
         proposing::set_all_token_fees(block, txn_hash_vec, original_block->block_header().fee_address());
 
         if (block->transactions().proposal_result_txns_size() > 0 && original_block->transactions().proposal_result_txns_size() > 0)
@@ -936,10 +947,10 @@ namespace
         {
             logging::print("********ORIGINAL BLOCK********");
             logging::print(block.DebugString());
-            logging::print(base58_encode(block.transactions().token_fees(0).address()));
+            //logging::print(base58_encode(block.transactions().token_fees(0).address()));
             logging::print("***MANUAL BLOCK***");
             logging::print(manual_block.DebugString());
-            logging::print(base58_encode(manual_block.transactions().token_fees(0).address()));
+            //logging::print(base58_encode(manual_block.transactions().token_fees(0).address()));
             return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "block_sync_client.cpp: process_block: Token fees do not match");
         }
         else

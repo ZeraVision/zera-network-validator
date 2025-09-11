@@ -19,6 +19,7 @@
 #include "../block_process/block_process.h"
 #include "../logging/logging.h"
 #include "validators.h"
+#include "fees.h"
 
 using namespace std;
 
@@ -56,9 +57,9 @@ namespace
 {
   bool storage_fees(const SenderDataType &sender, const uint64_t &storage_size)
   {
-    uint256_t storage_fee = STORAGE_FEE * storage_size;
+    uint256_t storage_fee = get_fee("STORAGE_FEE") * storage_size;
     uint256_t usd_equiv;
-    block_process::get_cur_equiv("$ZRA+0000", usd_equiv);
+    zera_fees::get_cur_equiv("$ZRA+0000", usd_equiv);
     storage_fee = (storage_fee * 1000000000) / usd_equiv;
 
     ZeraStatus status = balance_tracker::subtract_txn_balance(sender.fee_smart_contract_wallet, "$ZRA+0000", storage_fee, sender.txn_hash);
@@ -699,6 +700,7 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
 
   if (sender.current_depth >= sender.max_depth)
   {
+    logging::print("Error: current depth exceeded max depth");
     return WasmEdge_Result_Fail;
   }
 
@@ -1360,6 +1362,17 @@ WasmEdge_ModuleInstanceContext *CreateExternModule()
                      ReturnList_AllowanceDelegate, sizeof(ReturnList_AllowanceDelegate) / sizeof(ReturnList_AllowanceDelegate[0]),
                      AllowanceDelegate, "allowance_delegate");
 
+  // Authorized Currency Equiv
+  enum WasmEdge_ValType ParamList_AuthorizedCurrencyEquiv[9] = {WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32,
+                                                           WasmEdge_ValType_I32, WasmEdge_ValType_I32, WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_AuthorizedCurrencyEquiv[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_AuthorizedCurrencyEquiv, sizeof(ParamList_AuthorizedCurrencyEquiv) / sizeof(ParamList_AuthorizedCurrencyEquiv[0]),
+                     ReturnList_AuthorizedCurrencyEquiv, sizeof(ReturnList_AuthorizedCurrencyEquiv) / sizeof(ReturnList_AuthorizedCurrencyEquiv[0]),
+                     AuthorizedCurrencyEquiv, "authorized_currency_equiv");
+
   return HostModCxt;
 }
 
@@ -1643,7 +1656,7 @@ std::vector<std::any> smart_contract_service::eval(
   sender.fee_address = fee_address;
   sender.smart_contract_wallet = smart_contract_wallet;
   sender.fee_smart_contract_wallet = smart_contract_wallet;
-  sender.max_depth = 10;
+  sender.max_depth = 50;
   sender.current_depth = 0;
   sender.emited.clear();
   sender.call_chain.clear();

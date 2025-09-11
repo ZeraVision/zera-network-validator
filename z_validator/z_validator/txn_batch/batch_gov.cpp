@@ -637,7 +637,6 @@ void txn_batch::batch_proposal_results(const zera_txn::TXNS &txns, const std::ma
                         proposal.mutable_yes()->clear();
                         proposal.mutable_no()->clear();
                     }
-
                     proposal_batch.Put(result.proposal_id(), proposal.SerializeAsString());
                 }
                 else

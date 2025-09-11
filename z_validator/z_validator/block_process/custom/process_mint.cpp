@@ -16,6 +16,7 @@
 #include "../../temp_data/temp_data.h"
 #include "../../compliance/compliance.h"
 #include "../../logging/logging.h"
+#include "fees.h"
 
 namespace
 {
@@ -132,7 +133,7 @@ ZeraStatus block_process::process_txn<zera_txn::MintTXN>(const zera_txn::MintTXN
         }
     }
 
-    status = block_process::process_simple_fees(txn, status_fees, zera_txn::TRANSACTION_TYPE::MINT_TYPE, fee_address);
+    status = zera_fees::process_simple_fees(txn, status_fees, zera_txn::TRANSACTION_TYPE::MINT_TYPE, fee_address);
     if (!status.ok())
     {
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, status.message(), status.txn_status());
@@ -146,9 +147,13 @@ ZeraStatus block_process::process_txn<zera_txn::MintTXN>(const zera_txn::MintTXN
         return ZeraStatus(ZeraStatus::Code::TXN_FAILED, status.message(), status.txn_status());
     }
 
-    // check the the public key to see if its authorized to mint
-    // get the contract aswell
-    status = restricted_keys_check::check_restricted_keys(txn, contract, txn_type, timed);
+    status = zera_fees::process_interface_fees(txn->base(), status_fees);
+
+    if (status.ok())
+    {
+        status = restricted_keys_check::check_restricted_keys(txn, contract, txn_type, timed);
+    }
+
 
     if (status.ok())
     {

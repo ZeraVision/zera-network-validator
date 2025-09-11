@@ -1,6 +1,7 @@
 #include "../block_process.h"
 #include "utils.h"
 #include "../logging/logging.h"
+#include "fees.h"
 
 namespace
 {
@@ -15,7 +16,7 @@ namespace
 
     uint256_t get_wallet_balance(const zera_txn::Validator &validator, const std::string &contract_id)
     {
-        if (!block_process::check_qualified(contract_id))
+        if (!zera_fees::check_qualified(contract_id))
         {
             return 0;
         }
@@ -29,7 +30,7 @@ namespace
         }
         uint256_t cur_equiv;
         uint256_t amount(wallet_balance);
-        block_process::get_cur_equiv(contract_id, cur_equiv);
+        zera_fees::get_cur_equiv(contract_id, cur_equiv);
 
         return convert_to_cur_equiv(cur_equiv, amount, contract_id);
     }
@@ -48,15 +49,15 @@ namespace
         // check to see if token is qualified and get usd_equiv if it is, or send back zra usd equiv if it is not qualified
         uint256_t usd_equiv;
 
-        if (!block_process::check_qualified(contract.contract_id()))
+        if (!zera_fees::check_qualified(contract.contract_id()))
         {
             return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_heartbeat.cpp: process_fees: invalid token for fees: " + contract.contract_id());
         }
 
-        block_process::get_cur_equiv(contract.contract_id(), usd_equiv);
+        zera_fees::get_cur_equiv(contract.contract_id(), usd_equiv);
         // calculate the fees that need to be paid, and verify they have authorized enough coin to pay it
         uint256_t txn_fee_amount;
-        status = block_process::calculate_fees(usd_equiv, fee_type, txn->ByteSize(), txn->base().fee_amount(), txn_fee_amount, contract.coin_denomination().amount(), public_key);
+        status = zera_fees::calculate_fees(usd_equiv, fee_type, txn->ByteSize(), txn->base().fee_amount(), txn_fee_amount, contract.coin_denomination().amount(), public_key);
 
         if (!status.ok())
         {
@@ -65,7 +66,7 @@ namespace
 
         std::string wallet_key = wallets::generate_wallet(public_key);
 
-        status = block_process::process_fees(contract, txn_fee_amount, wallet_key, contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
+        status = zera_fees::process_fees(contract, txn_fee_amount, wallet_key, contract.contract_id(), true, status_fees, txn->base().hash(), fee_address);
 
         return status;
     }
@@ -74,7 +75,8 @@ namespace
     {
         uint256_t total_value = 0;
         uint256_t total_balance = 0;
-        uint256_t validator_min_hold(VALIDATOR_HOLDING_MINIMUM);
+        uint256_t validator_min_hold = get_fee("VALIDATOR_HOLDING_MINIMUM");
+        uint256_t validator_min_zera = get_fee("VALIDATOR_MINIMUM_ZERA");
         if (txn->validator().staked_contract_ids_size() <= 0)
         {
             std::string balance_str;
@@ -82,7 +84,7 @@ namespace
             zera_txn::InstrumentContract contract;
 
             db_wallets::get_single(wallet_str + ZERA_SYMBOL, balance_str);
-            block_process::get_cur_equiv(ZERA_SYMBOL, cur_equiv);
+            zera_fees::get_cur_equiv(ZERA_SYMBOL, cur_equiv);
             block_process::get_contract(ZERA_SYMBOL, contract);
 
             uint256_t balance(balance_str);
@@ -91,7 +93,7 @@ namespace
 
             total_value = (balance * cur_equiv) / denomination;
 
-            if (total_balance < VALIDATOR_MINIMUM_ZERA && total_value < validator_min_hold)
+            if (total_balance < validator_min_zera && total_value < validator_min_hold)
             {
                 logging::print("Validator does not have enough coin to stake. -", balance_str);
                 logging::print("wallet:", base58_encode(wallet_str));
@@ -157,15 +159,15 @@ namespace
                     zera_txn::InstrumentContract contract;
 
                     db_wallets::get_single(wallet_str + ZERA_SYMBOL, balance_str);
-                    block_process::get_cur_equiv(ZERA_SYMBOL, cur_equiv);
+                    zera_fees::get_cur_equiv(ZERA_SYMBOL, cur_equiv);
                     block_process::get_contract(ZERA_SYMBOL, contract);
 
                     uint256_t balance(balance_str);
                     total_balance = balance;
                     uint256_t denomination(contract.coin_denomination().amount());
                     uint256_t zera_value = (balance * cur_equiv) / denomination;
-                    
-                    if (total_balance >= VALIDATOR_MINIMUM_ZERA || zera_value >= validator_min_hold)
+
+                    if (total_balance >= validator_min_zera || zera_value >= validator_min_hold)
                     {
 
                         return ZeraStatus();
@@ -210,8 +212,21 @@ ZeraStatus block_process::process_txn<zera_txn::ValidatorRegistration>(const zer
         return status;
     }
 
-
     status = process_registration_fees(txn, status_fees, txn_type, txn->validator().public_key(), fee_address);
+
+    if (!status.ok())
+    {
+        return status;
+    }
+
+    status = zera_fees::process_interface_fees(txn->base(), status_fees);
+
+    if (!status.ok())
+    {
+        status_fees.set_status(status.txn_status());
+        nonce_tracker::add_nonce(wallets::generate_wallet(txn->validator().public_key()), nonce, txn->base().hash());
+        return status;
+    }
 
     if (txn->validator().public_key().has_governance_auth() || txn->base().public_key().has_smart_contract_auth() || txn->validator().public_key().has_multi())
     {
@@ -226,11 +241,6 @@ ZeraStatus block_process::process_txn<zera_txn::ValidatorRegistration>(const zer
         status = ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_registration.cpp: process_txn: Validator public key does not match generated public key.", zera_txn::TXN_STATUS::VALIDATOR_ADDRESS);
         status_fees.set_status(status.txn_status());
         nonce_tracker::add_nonce(wallets::generate_wallet(txn->base().public_key()), nonce, txn->base().hash());
-        return status;
-    }
-
-    if (!status.ok())
-    {
         return status;
     }
 
@@ -252,7 +262,7 @@ ZeraStatus block_process::process_txn<zera_txn::ValidatorRegistration>(const zer
         logging::print("Validator does exist");
     }
 
-    if(txn->register_())
+    if (txn->register_())
     {
         status = check_validator_balance(txn, wallet_adr);
     }

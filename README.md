@@ -1,4 +1,4 @@
-# zera-network-validator v1.1.7
+# zera-network-validator v1.1.8
 
 ZERA Vision (ZV) is a private company and member of the broader ZERA community.
 

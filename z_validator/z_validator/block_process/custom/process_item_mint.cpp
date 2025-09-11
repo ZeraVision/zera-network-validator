@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "../compliance/compliance.h"
 #include "../logging/logging.h"
+#include "fees.h"
 
 
 namespace
@@ -33,8 +34,14 @@ namespace
 
         return ZeraStatus();
     }
-    ZeraStatus item_mint(const zera_txn::ItemizedMintTXN *txn, zera_txn::InstrumentContract &contract, bool timed)
+    ZeraStatus item_mint(const zera_txn::ItemizedMintTXN *txn, zera_txn::InstrumentContract &contract, bool timed, zera_txn::TXNStatusFees &status_fees)
     {
+        ZeraStatus status = zera_fees::process_interface_fees(txn->base(), status_fees);
+
+        if (!status.ok())
+        {
+            return status;
+        }
 
         if (!compliance::check_compliance(txn->recipient_address(), contract))
         {
@@ -46,7 +53,7 @@ namespace
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_mint.cpp : qualified_mint : cannot safe send", zera_txn::TXN_STATUS::INVALID_SAFE_SEND);
         }
 
-        ZeraStatus status = block_process::get_contract(txn->contract_id(), contract);
+        status = block_process::get_contract(txn->contract_id(), contract);
         if (!status.ok())
         {
             return ZeraStatus(ZeraStatus::Code::TXN_FAILED, "process_item_mint.cpp: item_mint: NFT/SBT Contract does not exist.", zera_txn::TXN_STATUS::INVALID_CONTRACT);
@@ -131,17 +138,17 @@ ZeraStatus block_process::process_txn<zera_txn::ItemizedMintTXN>(const zera_txn:
     // check to see if token is qualified and get usd_equiv if it is, or send back zra usd equiv if it is not qualified
     uint256_t usd_equiv;
     std::string fee_id = txn->base().fee_id();
-    if (!block_process::check_qualified(fee_id))
+    if (!zera_fees::check_qualified(fee_id))
     {
         return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_item_mint.cpp: process_txn: The fee id is not a qualifying token: " + fee_id);
     }
 
-    block_process::get_cur_equiv(fee_id, usd_equiv);
+    zera_fees::get_cur_equiv(fee_id, usd_equiv);
 
     uint256_t byte_multiplier(get_txn_fee(zera_txn::TRANSACTION_TYPE::ITEM_MINT_TYPE));
     // calculate the fees that need to be paid, and verify they have authorized enough coin to pay it
     uint256_t txn_fee_amount;
-    status = block_process::calculate_fees(usd_equiv, byte_multiplier, txn->ByteSize(), txn->base().fee_amount(), txn_fee_amount, fee_contract.coin_denomination().amount(), txn->base().public_key());
+    status = zera_fees::calculate_fees(usd_equiv, byte_multiplier, txn->ByteSize(), txn->base().fee_amount(), txn_fee_amount, fee_contract.coin_denomination().amount(), txn->base().public_key());
 
     if (!status.ok())
     {
@@ -149,7 +156,7 @@ ZeraStatus block_process::process_txn<zera_txn::ItemizedMintTXN>(const zera_txn:
     }
     std::string sender_adr = wallets::generate_wallet(txn->base().public_key());
     zera_txn::InstrumentContract contract;
-    status = block_process::process_fees(contract, txn_fee_amount, sender_adr, fee_id, true, status_fees, txn->base().hash(), fee_address);
+    status = zera_fees::process_fees(contract, txn_fee_amount, sender_adr, fee_id, true, status_fees, txn->base().hash(), fee_address);
 
     if (!status.ok())
     {
@@ -159,7 +166,7 @@ ZeraStatus block_process::process_txn<zera_txn::ItemizedMintTXN>(const zera_txn:
     status_fees.set_base_contract_id(txn->base().fee_id());
     status_fees.set_base_fees(boost::lexical_cast<std::string>(txn_fee_amount));
 
-    status = item_mint(txn, contract, timed);
+    status = item_mint(txn, contract, timed, status_fees);
 
     if (status.ok())
     {

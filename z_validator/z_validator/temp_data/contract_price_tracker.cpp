@@ -1,5 +1,6 @@
 #include "temp_data.h"
 #include "db_base.h"
+#include "utils.h"
 
 std::map<std::string, zera_validator::ContractPrice> contract_price_tracker::contract_prices;
 
@@ -46,7 +47,7 @@ void contract_price_tracker::update_price(const std::string &contract_id)
         {
             contract_price.set_symbol(symbol);
             contract_price.set_number_of_symbols(1);
-            price = CONTRACT_TXN_FEE;
+            price = get_fee("CONTRACT_TXN_FEE");
         }
     }
 
@@ -88,7 +89,7 @@ void contract_price_tracker::get_price(const std::string &contract_id, uint256_t
         }
         else
         {
-            price = CONTRACT_TXN_FEE;
+            price = get_fee("CONTRACT_TXN_FEE");
         }
     }
 }

@@ -245,12 +245,12 @@ public:
 
                 if (status_fee.status() != zera_txn::TXN_STATUS::OK)
                 {
-                    logging::print(txn->base().memo(), "txn failed!");
+                    logging::print(txn->base().memo(), "txn failed!", true);
                 }
                 else
                 {
                     block_txns->add_expense_ratio_result_txns()->CopyFrom(*expense_results);
-                    logging::print(txn->base().memo(), "txn passed!");
+                    logging::print(txn->base().memo(), "txn passed!", true);
                 }
                 status_fee.set_txn_hash(txn->base().hash());
                 block_txns->add_txn_fees_and_status()->CopyFrom(status_fee);

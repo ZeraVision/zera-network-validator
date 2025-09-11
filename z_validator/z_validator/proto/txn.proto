@@ -290,6 +290,9 @@ message BaseTXN{
     optional string memo = 8;
     optional bool safe_send = 9;
     uint64 nonce = 10;
+    optional string interface_fee = 11;
+    optional string interface_fee_id = 12;
+    optional string interface_address = 13;
 }
 message PublicKey{
     bytes single = 1;
@@ -634,6 +637,14 @@ message TXNStatusFees{
     optional string native_function_fees = 12;
     optional uint64 gas = 13;
     repeated DelegatedData delegated_data = 14;
+    optional string interface_fee = 15;
+    optional string interface_fee_id = 16;
+}
+message ProposalContract
+{
+    string contract_id = 1;
+    repeated bytes proposal_ids = 2;
+    uint32 stage = 3;
 }
 
 message TXNWrapper{
@@ -668,6 +679,6 @@ message TXNWrapper{
     
     TRANSACTION_TYPE txn_type = 26;
     repeated bytes proposal_ids = 27;
-    repeated bytes proposal_contracts = 28;
+    repeated ProposalContract proposal_contracts = 28;
     optional bool smart_contract_txn = 29;
 }

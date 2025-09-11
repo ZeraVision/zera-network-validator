@@ -6,6 +6,7 @@
 #include "../block_process/block_process.h"
 #include "../logging/logging.h"
 #include <thread>
+#include "fees.h"
 
 namespace
 {
@@ -68,7 +69,7 @@ namespace
 
     uint256_t get_wallet_balance(zera_txn::Validator &validator, const std::string &contract_id)
     {
-        if (!block_process::check_qualified(contract_id))
+        if (!zera_fees::check_qualified(contract_id))
         {
             return 0;
         }
@@ -83,7 +84,7 @@ namespace
         }
         uint256_t cur_equiv;
         uint256_t amount(wallet_balance);
-        block_process::get_cur_equiv(contract_id, cur_equiv);
+        zera_fees::get_cur_equiv(contract_id, cur_equiv);
 
         return convert_to_cur_equiv(cur_equiv, amount, contract_id);
     }

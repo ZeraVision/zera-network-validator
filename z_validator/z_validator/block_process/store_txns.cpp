@@ -22,12 +22,12 @@ namespace
         return paddedHeight + ":" + hash;
     }
 
-    void staged(const zera_txn::InstrumentContract &contract, const zera_validator::ProposalLedger &old_proposal_ledger, zera_validator::ProposalLedger &new_proposal_ledger)
+    void staged(const zera_txn::InstrumentContract &contract, const zera_validator::ProposalLedger &old_proposal_ledger, zera_validator::ProposalLedger &new_proposal_ledger, const uint64_t timestamp)
     {
         bool final_stage = false;
         int stage;
 
-        if (new_proposal_ledger.stage() >= contract.governance().stage_length_size())
+        if (old_proposal_ledger.stage() >= contract.governance().stage_length_size() && ValidatorConfig::get_required_version() >= 101008)
         {
             stage = 1;
             new_proposal_ledger.set_stage(1);
@@ -52,9 +52,22 @@ namespace
                 months = contract.governance().voting_period();
             }
             google::protobuf::Timestamp end_ts = time_calc::get_end_date_cycle(old_proposal_ledger.cycle_end_date(), days, months);
+
+            uint64_t start_date = old_proposal_ledger.cycle_end_date().seconds();
+
+            while (end_ts.seconds() <= timestamp)
+            {
+                start_date = end_ts.seconds();
+                google::protobuf::Timestamp start_ts;
+                start_ts.set_seconds(start_date);
+
+                end_ts = time_calc::get_end_date_cycle(start_ts, days, months);
+            }
+
             new_proposal_ledger.mutable_cycle_end_date()->set_seconds(end_ts.seconds());
-            new_proposal_ledger.mutable_cycle_start_date()->set_seconds(old_proposal_ledger.cycle_end_date().seconds());
+            new_proposal_ledger.mutable_cycle_start_date()->set_seconds(start_date);
             new_proposal_ledger.mutable_proposal_ids()->CopyFrom(old_proposal_ledger.pending_proposal_ids());
+
         }
         else
         {
@@ -62,6 +75,31 @@ namespace
             new_proposal_ledger.mutable_cycle_end_date()->set_seconds(old_proposal_ledger.cycle_end_date().seconds());
             new_proposal_ledger.mutable_proposal_ids()->CopyFrom(old_proposal_ledger.proposal_ids());
             new_proposal_ledger.mutable_pending_proposal_ids()->CopyFrom(old_proposal_ledger.pending_proposal_ids());
+        }
+
+        if (final_stage)
+        {
+
+            for (auto proposal_id : new_proposal_ledger.proposal_ids())
+            {
+                zera_validator::Proposal proposal;
+                std::string proposal_data;
+                db_proposals::get_single(proposal_id, proposal_data);
+                if (!proposal.ParseFromString(proposal_data))
+                {
+                    logging::print("Failed to parse proposal data for proposal id:", proposal_id, "skipping");
+                    continue;
+                }
+
+                if(base58_encode(proposal_id) == "7ageXRbRbWQU2PhnmdLfgmh6S54joqkLKCEdrVrGuYJ4") 
+                {
+                    proposal.set_stage(stage);
+                }
+                else
+                {
+                    proposal.set_stage(1);
+                }
+            }
         }
 
         uint32_t days = 0;
@@ -78,12 +116,58 @@ namespace
         }
         else
         {
-            days = contract.governance().stage_length().at(stage - 1).length();
+            months = contract.governance().stage_length().at(stage - 1).length();
         }
 
-        google::protobuf::Timestamp end_ts = time_calc::get_end_date_cycle(old_proposal_ledger.stage_end_date(), days, months);
-        new_proposal_ledger.mutable_stage_end_date()->set_seconds(end_ts.seconds());
-        new_proposal_ledger.mutable_stage_start_date()->set_seconds(old_proposal_ledger.stage_end_date().seconds());
+        if (final_stage)
+        {
+            google::protobuf::Timestamp end_ts;
+
+            if (days == 0 && months == 0)
+            {
+                end_ts.set_seconds(new_proposal_ledger.cycle_end_date().seconds());
+            }
+            else
+            {
+                end_ts = time_calc::get_end_date_cycle(new_proposal_ledger.cycle_start_date(), days, months);
+            }
+
+            uint64_t start_date = new_proposal_ledger.mutable_cycle_start_date()->seconds();
+
+            for (auto proposal_id : new_proposal_ledger.proposal_ids())
+            {
+                zera_validator::Proposal proposal;
+                std::string proposal_data;
+                db_proposals::get_single(proposal_id, proposal_data);
+                if (!proposal.ParseFromString(proposal_data))
+                {
+                    logging::print("Failed to parse proposal data for proposal id:", proposal_id, "skipping");
+                    continue;
+                }
+                proposal.set_stage(1);
+                db_proposals::store_single(proposal_id, proposal.SerializeAsString());
+            }
+            new_proposal_ledger.set_stage(stage);
+            new_proposal_ledger.mutable_stage_end_date()->set_seconds(end_ts.seconds());
+            new_proposal_ledger.mutable_stage_start_date()->set_seconds(start_date);
+
+        }
+        else
+        {
+            google::protobuf::Timestamp end_ts;
+
+            if (days == 0 && months == 0)
+            {
+                end_ts.set_seconds(new_proposal_ledger.cycle_end_date().seconds());
+            }
+            else
+            {
+                end_ts = time_calc::get_end_date_cycle(old_proposal_ledger.stage_end_date(), days, months);
+            }
+
+            new_proposal_ledger.mutable_stage_end_date()->set_seconds(end_ts.seconds());
+            new_proposal_ledger.mutable_stage_start_date()->set_seconds(old_proposal_ledger.stage_end_date().seconds());
+        }
     }
     void cycle(const zera_txn::InstrumentContract &contract, const zera_validator::ProposalLedger &old_proposal_ledger, zera_validator::ProposalLedger &new_proposal_ledger)
     {
@@ -104,16 +188,12 @@ namespace
         new_proposal_ledger.mutable_proposal_ids()->CopyFrom(old_proposal_ledger.pending_proposal_ids());
     }
 
-    void update_staged_cycle(zera_validator::Block *block)
+    void update_staged_cycle(zera_validator::Block *block, uint64_t timestamp)
     {
         std::vector<std::string> contract_ids;
         std::vector<std::string> ledger_data;
         std::string header_data;
-        zera_validator::BlockHeader header;
         db_proposal_ledger::get_all_data(contract_ids, ledger_data);
-        std::string key = get_block_key((block->block_header().block_height() - 1), block->block_header().previous_block_hash());
-        db_headers::get_single(key, header_data);
-        header.ParseFromString(header_data);
 
         int x = 0;
         while (x < contract_ids.size())
@@ -137,15 +217,15 @@ namespace
 
             if (contract.governance().type() == zera_txn::GOVERNANCE_TYPE::STAGED)
             {
-                if (header.timestamp().seconds() >= old_proposal_ledger.stage_end_date().seconds())
+                if (timestamp >= old_proposal_ledger.stage_end_date().seconds())
                 {
-                    staged(contract, old_proposal_ledger, new_proposal_ledger);
+                    staged(contract, old_proposal_ledger, new_proposal_ledger, timestamp);
                     process = true;
                 }
             }
             else if (contract.governance().type() == zera_txn::GOVERNANCE_TYPE::CYCLE)
             {
-                if (header.timestamp().seconds() >= old_proposal_ledger.cycle_end_date().seconds())
+                if (block->block_header().timestamp().seconds() >= old_proposal_ledger.cycle_end_date().seconds())
                 {
                     cycle(contract, old_proposal_ledger, new_proposal_ledger);
                     process = true;
@@ -206,27 +286,18 @@ namespace
 
     void update_proposal_ledgers(zera_validator::Block *block)
     {
-        db_transactions::remove_single("1");
-        rocksdb::WriteBatch process_ledger_batch;
-        rocksdb::WriteBatch proposal_batch;
 
-        for (auto result : block->transactions().proposal_result_txns())
-        {
-            if ((result.fast_quorum() && result.passed()) || (!result.fast_quorum() && result.final_stage()))
-            {
-                logging::print("Delete proposal:", base58_encode(result.proposal_id()));
-            }
-        }
-        update_staged_cycle(block);
+        update_staged_cycle(block, block->block_header().timestamp().seconds());
+        
     }
 
     void update_proposal_heartbeat(zera_validator::Block *block)
     {
-        if(block->block_header().block_height() == 0)
+        if (block->block_header().block_height() == 0)
         {
             return;
         }
-        
+
         std::string pub_str = wallets::get_public_key_string(block->block_header().public_key());
         std::string validator_str;
         zera_txn::Validator validator;
@@ -274,7 +345,6 @@ ZeraStatus block_process::store_txns(zera_validator::Block *block, bool archive,
     item_tracker::clear_items();
     sbt_burn_tracker::clear_burns();
     remove_unbonding_validators(block->block_header());
-    update_proposal_ledgers(block);
 
     supply_tracker::supply_to_database();
     std::string block_height = std::to_string(block->block_header().block_height());
@@ -292,6 +362,7 @@ ZeraStatus block_process::store_txns(zera_validator::Block *block, bool archive,
     }
 
     gov_process::check_ledgers(block);
+    update_proposal_ledgers(block);
     restricted_keys_check::check_quash_ledger(block);
     txn_batch::batch_required_version(txns, txn_passed);
     logging::print("****************************\nDONE Storing Block: " + std::to_string(block->block_header().block_height()));

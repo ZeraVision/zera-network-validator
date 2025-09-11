@@ -6,6 +6,7 @@
 #include "../block_process/block_process.h"
 #include <ctime>
 #include <chrono>
+#include "fees.h"
 
 std::map<std::string, zera_validator::AllowanceState> allowance_tracker::block_allowances;
 std::map<std::string, std::map<std::string, zera_validator::AllowanceState>> allowance_tracker::add_txn_allowance_state;
@@ -118,7 +119,7 @@ bool allowance_tracker::check_allowance(const std::string &wallet_adr, const zer
     else if (allowance_state.has_allowed_currency_equivalent())
     {
         uint256_t equiv;
-        block_process::get_cur_equiv(contract_id, equiv);
+        zera_fees::get_cur_equiv(contract_id, equiv);
 
         zera_txn::InstrumentContract contract;
         block_process::get_contract(contract_id, contract);

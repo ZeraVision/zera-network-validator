@@ -40,18 +40,19 @@ namespace
             logging::print("batch proposals cant find wallet");
         }
         uint256_t wallet_amount(wallet_data);
-        zera_txn::InstrumentContract fee_contract;
+        zera_txn::InstrumentContract contract;
         std::string contract_data;
-        db_contracts::get_single(proposal.base().fee_id(), contract_data);
-        fee_contract.ParseFromString(contract_data);
+        db_contracts::get_single(proposal.contract_id(), contract_data);
+        contract.ParseFromString(contract_data);
 
         stored_proposal.set_contract_id(proposal.contract_id());
         stored_proposal.set_fee_id(fee_id);
         stored_proposal.set_wallet(proposal_wallet);
 
-        if (fee_contract.governance().type() == zera_txn::GOVERNANCE_TYPE::STAGED)
+
+        if (contract.governance().type() == zera_txn::GOVERNANCE_TYPE::STAGED)
         {
-            wallet_amount /= fee_contract.governance().stage_length_size();
+            wallet_amount /= contract.governance().stage_length_size();
         }
 
         stored_proposal.set_fee(boost::lexical_cast<std::string>(wallet_amount));

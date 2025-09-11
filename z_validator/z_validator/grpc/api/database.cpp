@@ -16,7 +16,11 @@ grpc::Status APIImpl::RecieveRequestDatabase(grpc::ServerContext *context, const
     {
         case zera_api::DATABASE_TYPE::CONTRACTS:
             {
-                db_contracts::get_single(request->key(), data);
+                zera_txn::InstrumentContract contract;
+                std::string contract_data;
+                db_contracts::get_single(request->key(), contract_data);
+                contract.ParseFromString(contract_data);
+                data = contract.DebugString();
                 break;
             }
             case zera_api::DATABASE_TYPE::HASH_INDEX:

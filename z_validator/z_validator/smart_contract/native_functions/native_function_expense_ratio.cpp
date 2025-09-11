@@ -9,6 +9,7 @@
 #include "../../block_process/block_process.h"
 #include "utils.h"
 #include "smart_contract_sender_data.h"
+#include "fees.h"
 
 namespace
 {
@@ -30,7 +31,7 @@ namespace
     void calc_fee(zera_txn::ExpenseRatioTXN *txn)
     {
         uint256_t equiv;
-        block_process::get_cur_equiv("$ZRA+0000", equiv);
+        zera_fees::get_cur_equiv("$ZRA+0000", equiv);
         zera_txn::InstrumentContract fee_contract;
         block_process::get_contract("$ZRA+0000", fee_contract);
 
@@ -100,6 +101,7 @@ namespace
 }
 WasmEdge_Result ExpenseRatio(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt, const WasmEdge_Value *In, WasmEdge_Value *Out)
 {
+    logging::print("[ExpenseRatio] Start");
     SenderDataType sender = *(SenderDataType *)Data;
 
     uint32_t ContractPointer = WasmEdge_ValueGetI32(In[0]);
@@ -125,6 +127,7 @@ WasmEdge_Result ExpenseRatio(void *Data, const WasmEdge_CallingFrameContext *Cal
     {
         std::string contract_temp(reinterpret_cast<char *>(ContractKey.data()), ContractSize);
         txn.set_contract_id(contract_temp);
+        logging::print("[ExpenseRatio] Contract ID: ", contract_temp, false);
     }
     else
     {
@@ -137,7 +140,8 @@ WasmEdge_Result ExpenseRatio(void *Data, const WasmEdge_CallingFrameContext *Cal
     {
         std::string adrs_temp(reinterpret_cast<char *>(AddressesKey.data()), AddressesSize);
         std::vector<std::string> addresses_temp = getWords(adrs_temp, "##");
-        for(auto &address : addresses)
+        logging::print("[ExpenseRatio] Addresses: ", adrs_temp, true);
+        for(auto &address : addresses_temp)
         {
             auto vec = base58_decode(address);
             std::string address_temp(vec.begin(), vec.end());
@@ -154,6 +158,7 @@ WasmEdge_Result ExpenseRatio(void *Data, const WasmEdge_CallingFrameContext *Cal
     if (WasmEdge_ResultOK(Res3))
     {
         std::string output_temp(reinterpret_cast<char *>(OutputKey.data()), OutputSize);
+        logging::print("[ExpenseRatio] Output Address: ", output_temp, true);
         auto vec = base58_decode(output_temp);
         std::string temp(vec.begin(), vec.end());
         txn.set_output_address(temp);
@@ -164,6 +169,8 @@ WasmEdge_Result ExpenseRatio(void *Data, const WasmEdge_CallingFrameContext *Cal
     }
 
     std::string status = create_expense(sender, txn);
+
+    logging::print("[ExpenseRatio] Status: ", status, true);
 
     const char *val = status.c_str();
     const size_t len = status.length();

@@ -289,13 +289,6 @@ ZeraStatus balance_tracker::subtract_txn_balance_transfer_allowance(const google
             if (balance < amount)
             {
                 std::string message = "balance_tracker.cpp: subtract_txn_balances: Insufficient wallet balance.";
-                logging::print("wallet: " + base58_encode(wallet_adr), "balance:" + balance.str() + " amount: " + amount.str(), true);
-
-                db_wallets::get_single(wallet_key, balance_str);
-                logging::print("balance:" + balance_str, true);
-
-                db_processed_wallets::get_single(wallet_key, balance_str);
-                logging::print("balance:" + balance_str, true);
 
                 return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INSUFFICIENT_AMOUNT);
             }
@@ -365,13 +358,6 @@ ZeraStatus balance_tracker::subtract_txn_balance_transfer(const google::protobuf
             if (balance < amount)
             {
                 std::string message = "balance_tracker.cpp: subtract_txn_balances: Insufficient wallet balance.";
-                logging::print("wallet: " + base58_encode(wallet_adr), "balance:" + balance.str() + " amount: " + amount.str(), true);
-
-                db_wallets::get_single(wallet_key, balance_str);
-                logging::print("balance:" + balance_str, true);
-
-                db_processed_wallets::get_single(wallet_key, balance_str);
-                logging::print("balance:" + balance_str, true);
 
                 return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INSUFFICIENT_AMOUNT);
             }
@@ -421,13 +407,14 @@ ZeraStatus balance_tracker::subtract_txn_balance(const std::string &wallet_addre
     std::string wallet_key = wallet_address + contract_id;
 
     std::string balance_str;
+
     if (db_processed_wallets::get_single(wallet_key, balance_str) || db_wallets::get_single(wallet_key, balance_str))
     {
         uint256_t balance(balance_str);
 
         if (balance < amount)
         {
-            std::string message = "balance_tracker.cpp: subtract_txn_balances: Insufficient wallet balance.";
+            std::string message = "Wallet_adr: " +  base58_encode(wallet_address) + contract_id + "\nbalance_tracker.cpp: subtract_txn_balances: Insufficient wallet balance.";
             return ZeraStatus(ZeraStatus::BLOCK_FAULTY_TXN, message, zera_txn::TXN_STATUS::INSUFFICIENT_AMOUNT);
         }
 

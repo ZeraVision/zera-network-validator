@@ -16,6 +16,7 @@ include_directories(
     /usr/local/lib
     /usr/local/include
     ${ZERA_DIR}/headers
+    ${ZERA_DIR}/block_process
 )
 
 link_directories(/usr/lib/x86_64-linux-gnu)
@@ -24,6 +25,35 @@ link_directories(/usr/lib/x86_64-linux-gnu)
 set(SOURCES
     #main
     ${ZERA_DIR}/zera-validator.cpp
+
+    #smart contracts
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_currency_equiv.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_allowance.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_vote.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_expense_ratio.cpp
+    ${ZERA_DIR}/smart_contract/smart_contract_service.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_utils.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_hold.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_mint.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_send.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_transfer.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_get_ace.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_db_get_data.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_db_store_single.cpp
+    ${ZERA_DIR}/smart_contract/native_functions/native_function_states.cpp
+    
+    #process_block
+    ${ZERA_DIR}/block_process/fees_simple.cpp
+    ${ZERA_DIR}/block_process/fees.cpp
+    ${ZERA_DIR}/block_process/store_txns.cpp
+    ${ZERA_DIR}/block_process/block_timer.cpp
+    ${ZERA_DIR}/block_process/pre_process.cpp
+    ${ZERA_DIR}/block_process/process_txn.cpp
+    ${ZERA_DIR}/block_process/process_utils.cpp
+    
+    #governance
+    ${ZERA_DIR}/governance/time_calc.cpp
+    ${ZERA_DIR}/governance/gov_process.cpp
 
     #batch_txns
     ${ZERA_DIR}/txn_batch/batch_misc.cpp
@@ -36,6 +66,7 @@ set(SOURCES
     
 
      #grpc
+     ${ZERA_DIR}/grpc/api/proposals.cpp
      ${ZERA_DIR}/grpc/api/block.cpp
      ${ZERA_DIR}/grpc/api/database.cpp
      ${ZERA_DIR}/grpc/api/ace_tokens.cpp
@@ -63,21 +94,6 @@ set(SOURCES
          ${ZERA_DIR}/grpc/p2p/api/balance_service.cpp
          ${ZERA_DIR}/grpc/p2p/server/validator_network_service.cpp
          ${ZERA_DIR}/grpc/p2p/server/gossip_service.cpp
-
-     #smart contracts
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_allowance.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_vote.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_expense_ratio.cpp
-     ${ZERA_DIR}/smart_contract/smart_contract_service.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_utils.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_hold.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_mint.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_send.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_transfer.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_get_ace.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_db_get_data.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_db_store_single.cpp
-     ${ZERA_DIR}/smart_contract/native_functions/native_function_states.cpp
 
     #standard
     ${ZERA_DIR}/block_process/template/process_allowance.cpp
@@ -169,21 +185,10 @@ set(SOURCES
      ${ZERA_DIR}/proposer/reg_process.cpp
      ${ZERA_DIR}/proposer/proposer_utils.cpp
      ${ZERA_DIR}/proposer/pre_process.cpp
-     
-    #governance
-    ${ZERA_DIR}/governance/time_calc.cpp
-    ${ZERA_DIR}/governance/gov_process.cpp
 
     #governance
     ${ZERA_DIR}/governance/time_calc.cpp
     ${ZERA_DIR}/governance/gov_process.cpp
-
-    #process_block
-    ${ZERA_DIR}/block_process/store_txns.cpp
-    ${ZERA_DIR}/block_process/block_timer.cpp
-    ${ZERA_DIR}/block_process/pre_process.cpp
-    ${ZERA_DIR}/block_process/process_txn.cpp
-    ${ZERA_DIR}/block_process/process_utils.cpp
 
      #attestations
      ${ZERA_DIR}/attestation/attestation_process.cpp

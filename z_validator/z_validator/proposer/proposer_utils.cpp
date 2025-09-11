@@ -231,7 +231,7 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
     }
     else if (wrapper.proposal_result_txn())
     {
-        status = gov_process::process_ledgers(block_txns, wrapper);
+        status = gov_process::process_ledgers(block_txns, wrapper, fee_address);
     }
     else if (wrapper.has_burn_sbt_txn())
     {

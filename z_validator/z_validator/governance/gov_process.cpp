@@ -14,6 +14,8 @@
 #include "../temp_data/temp_data.h"
 #include "../logging/logging.h"
 #include "hex_conversion.h"
+#include "base58.h"
+#include "fees.h"
 
 const uint256_t quintillion = 1000000000000000000;
 
@@ -31,7 +33,7 @@ namespace
         block_process::get_contract(contract_id, contract);
         uint256_t cur_equiv;
         uint256_t denomination(contract.coin_denomination().amount());
-        block_process::get_cur_equiv(contract.contract_id(), cur_equiv);
+        zera_fees::get_cur_equiv(contract.contract_id(), cur_equiv);
         uint256_t votes_amount(amount);
         votes_amount *= cur_equiv; // cur_equiv multiplier 1 quintillion
         votes_amount /= denomination;
@@ -157,7 +159,7 @@ namespace
         uint256_t denomination(voting_contract.coin_denomination().amount());
         uint256_t cur_equiv;
 
-        block_process::get_cur_equiv(voting_contract.contract_id(), cur_equiv);
+        zera_fees::get_cur_equiv(voting_contract.contract_id(), cur_equiv);
 
         circ_supply *= cur_equiv;
         circ_supply /= denomination;
@@ -297,7 +299,7 @@ namespace
 
         uint256_t denomination(voting_contract.coin_denomination().amount());
         uint256_t cur_equiv;
-        block_process::get_cur_equiv(voting_contract.contract_id(), cur_equiv);
+        zera_fees::get_cur_equiv(voting_contract.contract_id(), cur_equiv);
 
         circ_supply *= cur_equiv;
         circ_supply /= denomination;
@@ -357,11 +359,11 @@ namespace
         result->mutable_base()->set_hash(hash);
     }
 
-    ZeraStatus proposal_wallet(const zera_validator::Proposal &proposal, bool final_stage, zera_txn::TXNStatusFees *status_fee, zera_txn::ProposalResult *result)
+    ZeraStatus proposal_wallet(const zera_validator::Proposal &proposal, bool final_stage, zera_txn::TXNStatusFees *status_fee, zera_txn::ProposalResult *result, const std::string &fee_address)
     {
         std::string wallet_amount;
 
-        if (!db_wallets_temp::get_single(proposal.wallet() + proposal.fee_id(), wallet_amount) && !db_wallets::get_single(proposal.wallet() + proposal.fee_id(), wallet_amount))
+        if (!db_processed_wallets::get_single(proposal.wallet() + proposal.fee_id(), wallet_amount) && !db_wallets::get_single(proposal.wallet() + proposal.fee_id(), wallet_amount))
         {
             return ZeraStatus(ZeraStatus::Code::BLOCK_FAULTY_TXN, "process_proposal.cpp: proposal_wallet: could not find wallet.");
         }
@@ -377,7 +379,8 @@ namespace
         }
 
         zera_txn::InstrumentContract contract;
-        ZeraStatus status = block_process::process_fees(contract, fee_amount, proposal.wallet(), proposal.fee_id(), true, *status_fee, proposal.wallet());
+
+        ZeraStatus status = zera_fees::process_fees(contract, fee_amount, proposal.wallet(), proposal.fee_id(), true, *status_fee, result->proposal_id(), fee_address);
 
         if (status.ok())
         {
@@ -418,18 +421,17 @@ namespace
         }
         return true;
     }
-    ZeraStatus process_staged_cycle(const std::string &proposal_id, const zera_txn::InstrumentContract &contract, zera_txn::TXNS *txns, bool staged, zera_txn::TXNStatusFees *status_fee, zera_txn::ProposalResult *result)
+    ZeraStatus process_staged_cycle(const std::string &proposal_id, const zera_txn::InstrumentContract &contract, zera_txn::TXNS *txns, bool staged, zera_txn::TXNStatusFees *status_fee, zera_txn::ProposalResult *result, const std::string &fee_address)
     {
         std::string proposal_data;
         zera_validator::Proposal proposal;
 
-        if (!db_proposals::get_single(proposal_id, proposal_data) || !proposal.ParseFromString(proposal_data))
+        if (db_proposals::get_single(proposal_id, proposal_data) && proposal.ParseFromString(proposal_data))
         {
             result->set_contract_id(contract.contract_id());
             result->set_proposal_id(proposal_id);
 
             calc(proposal, contract, result);
-
             bool final_stage = true;
 
             if (staged)
@@ -437,7 +439,7 @@ namespace
                 final_stage = proposal.stage() >= contract.governance().stage_length_size();
             }
 
-            ZeraStatus status = proposal_wallet(proposal, true, status_fee, result);
+            ZeraStatus status = proposal_wallet(proposal, final_stage, status_fee, result, fee_address);
             if (!status.ok())
             {
                 return status;
@@ -448,8 +450,11 @@ namespace
             result->set_fast_quorum(false);
 
             sign_hash_result(result);
+
             return ZeraStatus();
         }
+
+        return ZeraStatus();
     }
 
     ZeraStatus process_staggered_adaptive(const std::string &proposal_id, zera_txn::TXNS *txns, zera_txn::TXNStatusFees *status_fee, zera_txn::ProposalResult *result)
@@ -474,7 +479,7 @@ namespace
 
             calc(proposal, contract, result);
 
-            ZeraStatus status = proposal_wallet(proposal, true, status_fee, result);
+            ZeraStatus status = proposal_wallet(proposal, true, status_fee, result, "");
             if (!status.ok())
             {
                 return status;
@@ -518,6 +523,12 @@ namespace
 
     bool check_staged_cycle(const zera_validator::Block *block, zera_txn::TXNWrapper &wrapper)
     {
+
+        if(ValidatorConfig::get_required_version() < 101008)
+        {
+            return false;
+        }
+
         std::vector<std::string> keys;
         std::vector<std::string> values;
         db_proposal_ledger::get_all_data(keys, values);
@@ -532,12 +543,19 @@ namespace
 
             if (ledger.has_stage_end_date())
             {
-
                 if (block->block_header().timestamp().seconds() >= ledger.stage_end_date().seconds())
                 {
                     if (ledger.proposal_ids_size() > 0)
                     {
-                        wrapper.add_proposal_contracts(keys.at(x));
+                        zera_txn::ProposalContract* proposal_contract = wrapper.add_proposal_contracts();
+                        proposal_contract->set_contract_id(keys.at(x));
+                        proposal_contract->set_stage(ledger.stage());
+
+                        for (auto id : ledger.proposal_ids())
+                        {
+                            proposal_contract->add_proposal_ids(id);
+                        }
+
                         has_proposals = true;
                     }
                 }
@@ -546,10 +564,17 @@ namespace
             {
                 if (block->block_header().timestamp().seconds() >= ledger.cycle_end_date().seconds())
                 {
-
                     if (ledger.proposal_ids_size() > 0)
                     {
-                        wrapper.add_proposal_contracts(keys.at(x));
+                        zera_txn::ProposalContract* proposal_contract = wrapper.add_proposal_contracts();
+                        proposal_contract->set_contract_id(keys.at(x));
+                        proposal_contract->set_stage(1);
+
+                        for (auto id : ledger.proposal_ids())
+                        {
+                            proposal_contract->add_proposal_ids(id);
+                        }
+
                         has_proposals = true;
                     }
                 }
@@ -560,23 +585,21 @@ namespace
         return has_proposals;
     }
 
-    ZeraStatus process_ledger(const zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *txns)
+    ZeraStatus process_ledger(const zera_txn::TXNWrapper &wrapper, zera_txn::TXNS *txns, const std::string &fee_address)
     {
         ZeraStatus status;
 
-        for (auto id : wrapper.proposal_contracts())
+        for (auto proposal_contract : wrapper.proposal_contracts())
         {
-            std::string proposal_ledger_data;
-            zera_validator::ProposalLedger proposal_ledger;
+            std::string contract_id = proposal_contract.contract_id();
+            uint32_t stage = proposal_contract.stage();
+
             std::string contract_data;
             zera_txn::InstrumentContract contract;
-            if (!db_proposal_ledger::get_single(id, proposal_ledger_data) || !proposal_ledger.ParseFromString(proposal_ledger_data))
-            {
-                break;
-            }
 
-            if (!db_contracts::get_single(id, contract_data) || !contract.ParseFromString(contract_data))
+            if (!db_contracts::get_single(contract_id, contract_data) || !contract.ParseFromString(contract_data))
             {
+                logging::print("Contract not found for proposal ledger:", contract_id, true);
                 break;
             }
 
@@ -584,13 +607,15 @@ namespace
             bool staged = contract.governance().type() == zera_txn::GOVERNANCE_TYPE::STAGED;
             bool cycle = contract.governance().type() == zera_txn::GOVERNANCE_TYPE::CYCLE;
 
-            for (auto id : proposal_ledger.proposal_ids())
+            for (auto id : proposal_contract.proposal_ids())
             {
                 zera_txn::TXNStatusFees status_fee;
                 zera_txn::ProposalResult result;
+
+                status = process_staged_cycle(id, contract, txns, staged, &status_fee, &result, fee_address);
+
                 results.push_back(result);
 
-                status = process_staged_cycle(id, contract, txns, staged, &status_fee, &result);
                 if (status.ok())
                 {
                     status_fee.set_status(status.txn_status());
@@ -629,7 +654,7 @@ namespace
                     }
                 }
 
-                uint32_t proposal_amount = contract.governance().stage_length().at(proposal_ledger.stage()).max_approved();
+                uint32_t proposal_amount = contract.governance().stage_length().at(stage - 1).max_approved();
 
                 if (proposal_amount == 0)
                 {
@@ -640,14 +665,12 @@ namespace
                 }
                 else
                 {
-
                     std::sort(next_stage.begin(), next_stage.end(), compare_by_uint256_t_desc);
 
                     if (next_stage.size() > proposal_amount)
                     {
                         next_stage.resize(proposal_amount);
                     }
-
                     for (auto result : results)
                     {
                         bool found = false;
@@ -741,7 +764,7 @@ namespace
     }
 }
 
-void gov_process::process_fast_quorum(zera_txn::TXNS *txns)
+void gov_process::process_fast_quorum(zera_txn::TXNS *txns, const std::string &fee_address)
 {
     if (txns->fast_quorum_txns_size() <= 0)
     {
@@ -773,7 +796,7 @@ void gov_process::process_fast_quorum(zera_txn::TXNS *txns)
 
         if (result->passed())
         {
-            proposal_wallet(proposal, true, status_fee, result);
+            proposal_wallet(proposal, true, status_fee, result, fee_address);
             result->set_final_stage(true);
         }
         else
@@ -824,7 +847,7 @@ void gov_process::process_fast_quorum_block_sync(zera_txn::TXNS *txns, const zer
 
         if (result->passed())
         {
-            proposal_wallet(proposal, true, status_fee, result);
+            proposal_wallet(proposal, true, status_fee, result, original_block->block_header().fee_address());
             result->set_final_stage(true);
         }
         else
@@ -856,13 +879,13 @@ void gov_process::process_fast_quorum_block_sync(zera_txn::TXNS *txns, const zer
     db_fast_quorum::remove_all();
 }
 
-ZeraStatus gov_process::process_ledgers(zera_txn::TXNS *txns, zera_txn::TXNWrapper &wrapper)
+ZeraStatus gov_process::process_ledgers(zera_txn::TXNS *txns, zera_txn::TXNWrapper &wrapper, const std::string &fee_address)
 {
     ZeraStatus status;
 
     if (wrapper.proposal_contracts_size() > 0)
     {
-        status = process_ledger(wrapper, txns);
+        status = process_ledger(wrapper, txns, fee_address);
     }
 
     for (auto id : wrapper.proposal_ids())
@@ -894,6 +917,7 @@ ZeraStatus gov_process::process_ledgers(zera_txn::TXNS *txns, zera_txn::TXNWrapp
 bool gov_process::check_ledgers(const zera_validator::Block *block)
 {
     zera_txn::TXNWrapper wrapper;
+    db_transactions::remove_single("1");
 
     if (check_staggered_adaptive(block, wrapper) || check_staged_cycle(block, wrapper))
     {

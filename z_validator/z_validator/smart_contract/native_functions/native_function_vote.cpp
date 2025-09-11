@@ -9,12 +9,14 @@
 #include "../../block_process/block_process.h"
 #include "utils.h"
 #include "smart_contract_sender_data.h"
+#include "fees.h"
+
 namespace
 {
     void calc_fee(zera_txn::GovernanceVote *txn)
     {
         uint256_t equiv;
-        block_process::get_cur_equiv("$ZRA+0000", equiv);
+        zera_fees::get_cur_equiv("$ZRA+0000", equiv);
         zera_txn::InstrumentContract fee_contract;
         block_process::get_contract("$ZRA+0000", fee_contract);
 

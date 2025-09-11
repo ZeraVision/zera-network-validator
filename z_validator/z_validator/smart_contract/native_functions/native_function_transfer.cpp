@@ -9,6 +9,7 @@
 #include "../../block_process/block_process.h"
 #include "utils.h"
 #include "smart_contract_sender_data.h"
+#include "fees.h"
 
 //*************************************************************
 //                          Transfer
@@ -26,9 +27,9 @@ namespace
     {
 
         uint256_t fee_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
         uint256_t priority_equiv;
-        block_process::get_cur_equiv(contract.contract_id(), priority_equiv);
+        zera_fees::get_cur_equiv(contract.contract_id(), priority_equiv);
 
         fixed_fee_amount = (fixed_fee_amount * priority_equiv) / fee_equiv;
     }
@@ -39,9 +40,9 @@ namespace
         perc_fee_amount = amount * contract_fee / quintillion;
 
         uint256_t fee_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
         uint256_t txn_equiv;
-        block_process::get_cur_equiv(fee_id, fee_equiv);
+        zera_fees::get_cur_equiv(fee_id, fee_equiv);
 
         perc_fee_amount = (perc_fee_amount * txn_equiv) / fee_equiv;
     }
@@ -73,7 +74,7 @@ namespace
         uint256_t contract_fee(contract.contract_fees().fee());
         uint256_t denomination(contract.coin_denomination().amount());
         uint256_t contract_equiv;
-        block_process::get_cur_equiv(contract.contract_id(), contract_equiv);
+        zera_fees::get_cur_equiv(contract.contract_id(), contract_equiv);
 
         switch (contract.contract_fees().contract_fee_type())
         {
@@ -82,7 +83,7 @@ namespace
             // contract fee has quintillion multiplier
             // fee_equiv has 1 quintillion multiplier
             uint256_t fee_equiv;
-            block_process::get_cur_equiv(txn->contract_fee_id(), fee_equiv);
+            zera_fees::get_cur_equiv(txn->contract_fee_id(), fee_equiv);
             contract_fee_amount = (contract_fee * denomination) / fee_equiv;
             break;
         }
@@ -108,7 +109,7 @@ namespace
     void calc_fee(zera_txn::CoinTXN *txn)
     {
         uint256_t equiv;
-        block_process::get_cur_equiv("$ZRA+0000", equiv);
+        zera_fees::get_cur_equiv("$ZRA+0000", equiv);
         zera_txn::InstrumentContract fee_contract;
         block_process::get_contract("$ZRA+0000", fee_contract);
 
@@ -132,7 +133,7 @@ namespace
     void calc_fee_v2(zera_txn::CoinTXN *txn)
     {
         uint256_t equiv;
-        block_process::get_cur_equiv("$ZRA+0000", equiv);
+        zera_fees::get_cur_equiv("$ZRA+0000", equiv);
         zera_txn::InstrumentContract fee_contract;
         block_process::get_contract("$ZRA+0000", fee_contract);
         uint256_t txn_fee_amount;
@@ -278,6 +279,7 @@ namespace
 }
 WasmEdge_Result Transfer(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt, const WasmEdge_Value *In, WasmEdge_Value *Out)
 {
+    logging::print("[Transfer] START");
     /*
      * Params: {i32, i32, i32, i32, i32, i32, i32}
      * Returns: {i32}
@@ -308,6 +310,7 @@ WasmEdge_Result Transfer(void *Data, const WasmEdge_CallingFrameContext *CallFra
     {
         std::string contract_temp(reinterpret_cast<char *>(ContractKey.data()), ContractSize);
         contract_id = contract_temp;
+        logging::print("[Transfer] Contract ID: ", contract_id, true);
     }
     else
     {
@@ -344,6 +347,7 @@ WasmEdge_Result Transfer(void *Data, const WasmEdge_CallingFrameContext *CallFra
         std::string temp_wallet(reinterpret_cast<char *>(WalletKey.data()), WalletSize);
 
         wallet = temp_wallet;
+        logging::print("[Transfer] Wallet: ", wallet, true);
     }
     else
     {
