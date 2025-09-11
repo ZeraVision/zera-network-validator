@@ -141,6 +141,7 @@ public:
 
         if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE && ValidatorConfig::get_required_version() >= 101005))
         {
+            logging::print("execute_key: ", execute_key, true);
             db_smart_contracts::store_single(execute_key, block_txns->SerializeAsString());
         }
 
