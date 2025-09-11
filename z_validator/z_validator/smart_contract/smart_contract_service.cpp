@@ -762,6 +762,7 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
     {
       for (auto &element : parametersVecString)
       {
+        logging::print("Parameter:", std::any_cast<std::string>(element), true);
         parametersVec.push_back(element);
       }
     }
@@ -820,7 +821,7 @@ WasmEdge_Result DelegateCall(void *, const WasmEdge_CallingFrameContext *CallFra
     }
     catch (std::exception &e)
     {
-      logging::print("[DelegateCall] FAILED!");
+      logging::print("[DelegateCall] FAILED!", e.what(), true);
       return WasmEdge_Result_Fail;
     }
 
@@ -1204,6 +1205,13 @@ WasmEdge_ModuleInstanceContext *CreateExternModule()
                      ReturnList_CurrentSmartContractWallet, sizeof(ReturnList_CurrentSmartContractWallet) / sizeof(ReturnList_CurrentSmartContractWallet[0]),
                      CurrentSmartContractWallet, "current_smart_contract_wallet");
 
+  enum WasmEdge_ValType ParamList_CalledSmartContractWallet[1] = {WasmEdge_ValType_I32};
+  enum WasmEdge_ValType ReturnList_CalledSmartContractWallet[1] = {WasmEdge_ValType_I32};
+  CreateHostFunction(HostModCxt,
+                     ParamList_CalledSmartContractWallet, sizeof(ParamList_CalledSmartContractWallet) / sizeof(ParamList_CalledSmartContractWallet[0]),
+                     ReturnList_CalledSmartContractWallet, sizeof(ReturnList_CalledSmartContractWallet) / sizeof(ReturnList_CalledSmartContractWallet[0]),
+                     CalledSmartContractWallet, "called_smart_contract_wallet");
+
   // //
   // // add "delegatecall" function
   enum WasmEdge_ValType ParamList_Delegatecall[9] = {
@@ -1351,7 +1359,6 @@ WasmEdge_ModuleInstanceContext *CreateExternModule()
                      ParamList_AllowanceDelegate, sizeof(ParamList_AllowanceDelegate) / sizeof(ParamList_AllowanceDelegate[0]),
                      ReturnList_AllowanceDelegate, sizeof(ReturnList_AllowanceDelegate) / sizeof(ReturnList_AllowanceDelegate[0]),
                      AllowanceDelegate, "allowance_delegate");
-
 
   return HostModCxt;
 }

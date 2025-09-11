@@ -183,8 +183,7 @@ int main()
     // open all databases
     open_dbs();
     ValidatorConfig::set_config();
-  
-    logging::print("ZERA Validator v1.1.6", false);
+    logging::print("ZERA Validator v1.1.7", false);
 
     if (!check_config())
     {

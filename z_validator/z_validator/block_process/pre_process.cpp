@@ -110,7 +110,6 @@ template void pre_process::process_txn<zera_txn::BurnSBTTXN>(zera_txn::BurnSBTTX
 template void pre_process::process_txn<zera_txn::CoinTXN>(zera_txn::CoinTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip);
 template void pre_process::process_txn<zera_txn::ValidatorHeartbeat>(zera_txn::ValidatorHeartbeat *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip);
 template void pre_process::process_txn<zera_txn::ValidatorRegistration>(zera_txn::ValidatorRegistration *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip);
-template void pre_process::process_txn<zera_txn::SmartContractInstantiateTXN>(zera_txn::SmartContractInstantiateTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip);
 template void pre_process::process_txn<zera_txn::InstrumentContract>(zera_txn::InstrumentContract *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip);
 template void pre_process::process_txn<zera_txn::AllowanceTXN>(zera_txn::AllowanceTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip);
 
@@ -143,6 +142,31 @@ void pre_process::process_txn<zera_txn::ExpenseRatioTXN>(zera_txn::ExpenseRatioT
 
 template <>
 void pre_process::process_txn<zera_txn::SmartContractExecuteTXN>(zera_txn::SmartContractExecuteTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip)
+{
+    std::string value;
+    std::string txn_hash = txn->base().hash();
+    zera_txn::TXNWrapper wrapper;
+    std::string txn_key = get_txn_key(txn->base().nonce(), txn_hash);
+
+    if (!db_block_txns::get_single(txn_hash, value))
+    {
+        // add txn to preprocessed txns
+        verify_txns::store_wrapper(txn, wrapper);
+        db_transactions::store_single(txn_key, wrapper.SerializeAsString());
+
+        zera_validator::TXN gossip_txn;
+        gossip_txn.set_txn_type(txn_type);
+        gossip_txn.set_serialized_txn(txn->SerializeAsString());
+        db_gossip::store_single(txn_hash, gossip_txn.SerializeAsString());
+    }
+    else
+    {
+
+    }
+}
+
+template <>
+void pre_process::process_txn<zera_txn::SmartContractInstantiateTXN>(zera_txn::SmartContractInstantiateTXN *txn, const zera_txn::TRANSACTION_TYPE &txn_type, const std::string& client_ip)
 {
     std::string value;
     std::string txn_hash = txn->base().hash();

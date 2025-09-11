@@ -265,7 +265,9 @@ ZeraStatus proposing::processTransaction(zera_txn::TXNWrapper &wrapper, zera_txn
     }
     else if (wrapper.has_smart_contract_instantiate_txn())
     {
+
         status = proposing::unpack_process_wrapper(wrapper.mutable_smart_contract_instantiate_txn(), block_txns, zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE, timed, fee_address, wrapper.smart_contract_txn());
+        
         if (status.ok())
         {
             txn_hash_tracker::add_hash(wrapper.smart_contract_instantiate_txn().base().hash());

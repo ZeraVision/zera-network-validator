@@ -241,7 +241,6 @@ grpc::Status ValidatorServiceImpl::StreamBlockAttestation(grpc::ServerContext *c
     }
     else
     {
-        logging::print("stream no preference");
         no_preference_response(*request, current_attestation, *response);
     }
 
@@ -300,14 +299,12 @@ void ValidatorServiceImpl::ProcessBlockAttestationAsync(const zera_validator::Bl
     zera_validator::ValidatorArchive validator_archive;
     validator_archive.ParseFromString(validator_archive_data);
 
-    logging::print("Processing attestation");
     // check qurom of validators on this block
     // store attestation in db
     // send attestation to other validators
 
     if (response->no_preference())
     {
-        logging::print("has no preference");
         return;
     }
 

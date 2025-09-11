@@ -6,7 +6,7 @@
 
 
 void debug::startup_logs(){
-    logging::print("----------------Version 1.1.6------------------", false);
+    logging::print("----------------Version 1.1.7------------------", false);
 
     logging::print("----------------CONFIG------------------", false);
     logging::print("Host:", ValidatorConfig::get_host(), false);

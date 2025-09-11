@@ -155,6 +155,7 @@ namespace
         base->set_safe_send(false);
     }
 
+
     void set_auth(zera_txn::TransferAuthentication *auth, SenderDataType &sender)
     {
         std::string wallet_address = sender.wallet_address;
@@ -189,6 +190,13 @@ namespace
         output->set_wallet_address(sender.smart_contract_wallet);
     }
 
+    void current_set_output(zera_txn::OutputTransfers *output, const std::string &amount, SenderDataType &sender)
+    {
+        auto index = sender.wallet_chain.size() - 1;
+        output->set_amount(amount);
+        output->set_wallet_address(sender.wallet_chain[index]);
+    }
+
     std::string process_txn(SenderDataType &sender, const zera_txn::CoinTXN &txn)
     {
         std::string value;
@@ -197,12 +205,10 @@ namespace
         block_txns.ParseFromString(value);
         std::string fee_address = sender.fee_address;
         
-        logging::print("sc execute_key: ", sender.block_txns_key, true);
         ZeraStatus status = proposing::unpack_process_wrapper(&txn, &block_txns, zera_txn::TRANSACTION_TYPE::COIN_TYPE, false, fee_address, true);
 
         if (status.ok())
         {
-            logging::print("sc status ok", true);
             sender.txn_hashes.push_back(txn.base().hash());
             block_txns.add_coin_txns()->CopyFrom(txn);
             txn_hash_tracker::add_sc_hash(txn.base().hash());
@@ -249,7 +255,7 @@ namespace
         current_set_base(base, sender);
         set_auth(txn.mutable_auth(), sender);
         set_input(input, amount);
-        set_output(txn.add_output_transfers(), amount, sender);
+        current_set_output(txn.add_output_transfers(), amount, sender);
         txn.set_contract_id(contract_id);
 
         if (!calc_contract_fee(amount, &txn))
@@ -265,6 +271,8 @@ namespace
         return process_txn(sender, txn);
     }
 }
+
+
 // need to send if sc or sender sending txn, contract_id and amount
 WasmEdge_Result Hold(void *Data, const WasmEdge_CallingFrameContext *CallFrameCxt, const WasmEdge_Value *In, WasmEdge_Value *Out)
 {
@@ -390,7 +398,6 @@ WasmEdge_Result CurrentHold(void *Data, const WasmEdge_CallingFrameContext *Call
     }
 
     std::string status = current_create_transfer(sender, contract_id, amount);
-    std::string fee_address = sender.fee_address;
     std::string result = status;
     const char *val = result.c_str();
     const size_t len = result.length();

@@ -379,7 +379,7 @@ WasmEdge_Result DelegateMint(void *Data, const WasmEdge_CallingFrameContext *Cal
     }
     else
     {
-        return Res3;
+        return Res4;
     }
 
     std::vector<uint8_t> wallet_decode;

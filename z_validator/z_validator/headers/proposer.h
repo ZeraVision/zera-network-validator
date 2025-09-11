@@ -139,7 +139,7 @@ public:
         status_fee.set_smart_contract(sc_txn);
         std::string execute_key = "BLOCK_TXNS_" + txn_hash;
 
-        if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE)
+        if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE && ValidatorConfig::get_required_version() >= 101005))
         {
             logging::print("execute_key: ", execute_key, true);
             db_smart_contracts::store_single(execute_key, block_txns->SerializeAsString());
@@ -163,7 +163,7 @@ public:
                     logging::print(txn->base().memo(), "txn passed!", true);
                 }
 
-                if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE)
+                if (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_EXECUTE_TYPE || (txn_type == zera_txn::TRANSACTION_TYPE::SMART_CONTRACT_INSTANTIATE_TYPE && ValidatorConfig::get_required_version() >= 101005))
                 {
                     bool add_txns = false;
                     auto version = ValidatorConfig::get_required_version();
