@@ -25,12 +25,3 @@ By accessing or using the ZERA Network you agree that you have read the disclaim
 11.   Any legal suit, action or proceeding arising out of, or related to, these Rules of Engagement or the Ecosystems or any other dispute resolution of what ever kind, shall be instituted exclusively in Switzerland in the Kanton of Zug, by arbitration only
 
 12.   These Rules of Engagement can be changed at any time via $LEGAL+0000 governance. Your continued use means you accept these changes. In case other legal documents governing the use are added to a specific platform, where conflicting, the provisions of the latter shall take precedent
-
----
-
-**ZERA Vision Proposal-as-a-Service (PaaS)**
-
-This proposal was created with the assistance of the ZERA Vision Proposal-as-a-  
-Service program ([https://zeravision.ca/services/proposal-as-a-service](https://zeravision.ca/services/proposal-as-a-service)).
-
----

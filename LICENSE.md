@@ -131,7 +131,7 @@ All forks, deployments, or instances materially controlled or operated by the li
   
 Attempts to evade license terms by distributing activity across multiple licensees representing the same project or protocol constitute a breach of this license.
 
-**License Continuity Obligation:** The licensee must remain current with the most recent version of the ZERA License and all incorporated governance documents and decisions, including but not limited to the Rules of Engagement. Updates published by the ZERA Network become binding 30 days after publication, at which point licensees must adopt and comply with them.
+**License Continuity Obligation:** The licensee must remain current with the most recent version of the ZERA License and all incorporated governance documents and decisions, including but not limited to the [Rules of Engagement](https://github.com/ZeraVision/zera-network-validator/blob/main/rules-of-engagement.md). Updates published by the ZERA Network become binding 30 days after publication, at which point licensees must adopt and comply with them.
 
 ---
 
@@ -143,7 +143,7 @@ The software may not be used, modified, or distributed in any manner that underm
 
 **11. Governance Documents and Decisions**
 
-The ZERA License incorporates governance documents and outcomes of ZERA governance processes as binding on all licensees. This includes, but is not limited to, the latest version of "Rules of Engagement" incorporated herein by reference, and any binding decisions enacted through the $LEGAL+0000 contract or equivalent governance mechanisms.
+The ZERA License incorporates governance documents and outcomes of ZERA governance processes as binding on all licensees. This includes, but is not limited to, the latest version of "[Rules of Engagement](https://github.com/ZeraVision/zera-network-validator/blob/main/rules-of-engagement.md)" incorporated herein by reference, and any binding decisions enacted through the $LEGAL+0000 contract or equivalent governance mechanisms.
 
 Governance documents and decisions may clarify, interpret, or update the obligations of this license, provided they remain consistent with its foundational principles.
 
